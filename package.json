@@ -1,0 +1,20 @@
+{
+  "name": "swimgame-liga-galega",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Swimming Manager Game based on the Galician Swimming Club League (FEGAN Circular 26-14)",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "python3 server.py",
+    "serve": "python3 -m http.server 8080"
+  },
+  "keywords": [
+    "swimming",
+    "sports-manager",
+    "fegan",
+    "galicia",
+    "simulation"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}

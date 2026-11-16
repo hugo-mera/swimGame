@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="gl" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liga Galega de Clubs de Natación - FEGAN Manager</title>
+  <meta name="description" content="Xogo de xestión dun club de natación na Liga Galega de Clubs de Natación (FEGAN). Ascende desde 3ª División ata División de Honra.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏊‍♂️</text></svg>">
+  
+  <!-- Tailwind CSS via CDN for rapid utility classes -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Custom Styling -->
+  <link rel="stylesheet" href="./styles/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-cyan-500 selection:text-white">
+  <div id="app">
+    <!-- Application mounted by main.js -->
+    <div class="min-h-screen flex items-center justify-center">
+      <div class="text-center space-y-3">
+        <div class="text-4xl animate-bounce">🏊‍♂️</div>
+        <p class="text-slate-400 text-sm font-semibold tracking-wide">Cargando Liga Galega de Clubs...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main ES Module -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
