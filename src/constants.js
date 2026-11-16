@@ -185,6 +185,11 @@ export const MEET_PROGRAMS = {
   ]
 };
 
+// Set of all relay event IDs across all official league programs (Circular 26-14)
+export const RELAY_EVENT_IDS = new Set(
+  Object.values(MEET_PROGRAMS).flatMap(prog => prog.filter(e => e.isRelay).map(e => e.id))
+);
+
 // Official Galician League Scoring Tables (Circular 26-14 Page 3)
 export const SCORING_RULES = {
   PRELIM_POINTS_6_CLUBS: {
@@ -397,6 +402,66 @@ export const EQUIPMENT_CATALOG = [
     raceStartBonus: 0.15, // Faster reaction times & relay takeoffs
     icon: '⏱️',
     description: 'Reduce tempos de reacción nas saídas e cambios de remudas en 0.15 segundos.'
+  }
+];
+
+// Prize Money distributions (per Jornada and End of Season)
+export const PRIZE_MONEY = {
+  PER_MEET_BY_DIVISION: {
+    [DIVISIONS.HONRA]: [6000, 4500, 3200, 2200, 1500, 1000],
+    [DIVISIONS.DIV1]: [4500, 3200, 2200, 1500, 1000, 700],
+    [DIVISIONS.DIV2]: [3500, 2500, 1700, 1200, 800, 500],
+    [DIVISIONS.DIV3]: [2500, 1800, 1300, 950, 700, 500, 350, 250]
+  },
+  SEASON_END_BONUS: [
+    { rank: 1, name: 'Campión da Liga', prize: 20000 },
+    { rank: 2, name: 'Subcampión / Ascenso Directo', prize: 14000 },
+    { rank: 3, name: '3º Clasificado', prize: 8000 },
+    { rank: 4, name: '4º Clasificado', prize: 5000 },
+    { rank: 5, name: '5º Clasificado', prize: 3500 },
+    { rank: 6, name: '6º Clasificado', prize: 2500 },
+    { rank: 7, name: '7º Clasificado', prize: 1800 },
+    { rank: 8, name: '8º Clasificado', prize: 1200 }
+  ]
+};
+
+// Available sponsors to sign as club reputation increases
+export const AVAILABLE_SPONSORS = [
+  {
+    id: 'sp_gadis_froiz',
+    name: 'Supermercados Galegos (Alimentación Saudable)',
+    category: 'Comercial',
+    minReputation: 45,
+    weeklyIncome: 420,
+    icon: '🛒',
+    description: 'Empresa galega de distribución que apoia o deporte federado.'
+  },
+  {
+    id: 'sp_estrella',
+    name: 'Cervexas Galegas 0,0 & Augas de Galicia',
+    category: 'Bebidas & Hidratación',
+    minReputation: 60,
+    weeklyIncome: 750,
+    icon: '💧',
+    description: 'Marca líder galega comprometida cos clubs acuáticos de elite.'
+  },
+  {
+    id: 'sp_banca',
+    name: 'Entidade Financeira Galega (Deporte Base)',
+    category: 'Financeiro',
+    minReputation: 72,
+    weeklyIncome: 1200,
+    icon: '💳',
+    description: 'Banca galega que financia equipamento e viaxes do equipo.'
+  },
+  {
+    id: 'sp_xunta_turismo',
+    name: 'Turismo de Galicia & Xacobeo',
+    category: 'Institucional',
+    minReputation: 82,
+    weeklyIncome: 1800,
+    icon: '🐚',
+    description: 'Patrocinador de honra que promove a imaxe de Galicia no deporte.'
   }
 ];
 

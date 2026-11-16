@@ -35,7 +35,7 @@ export function renderMarket() {
         <div class="flex items-center gap-4">
           <div class="text-right">
             <span class="text-xs text-slate-400 block font-semibold uppercase">Orzamento Dispoñible</span>
-            <div class="text-2xl font-black text-emerald-400 font-mono">${club.funds.toLocaleString()} €</div>
+            <div class="text-2xl font-black ${club.funds < 0 ? 'text-rose-500' : 'text-emerald-400'} font-mono">${club.funds.toLocaleString()} €</div>
           </div>
           <button id="btn-refresh-market-now" class="btn btn-sm btn-outline text-xs">
             🔄 Renovar Oxeadores

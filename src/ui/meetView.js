@@ -128,40 +128,130 @@ function renderRosterSelectionView(club, scheduleEvent, isRosterWeek) {
         <div class="flex items-center justify-between mb-3">
           <div>
             <h4 class="font-bold text-white text-base">Reservas do Club (Circular 26-14 art. 3.8)</h4>
-            <p class="text-xs text-slate-400">Podes inscribir ata 4 nadadores reservas para posibles cambios ou baixas no día da proba</p>
+            <p class="text-xs text-slate-400">Só nadadores que NON estean inscritos en ningunha proba poden ser reservas</p>
           </div>
-          <span class="badge badge-primary text-xs">${(club.meetReserves || []).length}/4 Reservas</span>
+          <span class="badge badge-primary text-xs">${(club.meetReserves || []).filter(Boolean).length}/4 Reservas</span>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          ${[0, 1, 2, 3].map(slotIdx => {
-            const currentReserveId = (club.meetReserves && club.meetReserves[slotIdx]) || '';
-            return `
-              <div>
-                <label class="block text-[11px] text-slate-400 font-semibold mb-1">Reserva #${slotIdx + 1}</label>
-                <select class="select-reserve-swimmer bg-slate-800 border border-slate-700 text-white text-xs rounded-lg w-full p-2" data-slot="${slotIdx}">
-                  <option value="">-- Sen Reserva --</option>
-                  ${club.swimmers.map(s => `
-                    <option value="${s.id}" ${currentReserveId === s.id ? 'selected' : ''}>
-                      ${s.fullName} (${s.gender}, ${s.overallRating} med)
-                    </option>
-                  `).join('')}
-                </select>
-              </div>
-            `;
-          }).join('')}
+          ${(() => {
+            // Find all swimmer IDs currently entered in ANY individual or relay event
+            const allEnteredIds = new Set();
+            Object.values(club.currentMeetEntries || {}).forEach(list => {
+              if (Array.isArray(list)) {
+                list.forEach(id => { if (id) allEnteredIds.add(id); });
+              }
+            });
+
+            return [0, 1, 2, 3].map(slotIdx => {
+              const currentReserveId = (club.meetReserves && club.meetReserves[slotIdx]) || '';
+              const otherReserveIds = (club.meetReserves || []).filter((id, idx) => idx !== slotIdx && Boolean(id));
+              // Eligible reserves are strictly those not entered in any event (plus current selection for this slot) and not in other reserve slots
+              const availableReserves = club.swimmers.filter(s => (!allEnteredIds.has(s.id) && !otherReserveIds.includes(s.id)) || s.id === currentReserveId);
+
+              return `
+                <div>
+                  <label class="block text-[11px] text-slate-400 font-semibold mb-1">Reserva #${slotIdx + 1}</label>
+                  <select class="select-reserve-swimmer bg-slate-800 border border-slate-700 text-white text-xs rounded-lg w-full p-2" data-slot="${slotIdx}">
+                    <option value="">-- Sen Reserva --</option>
+                    ${availableReserves.map(s => `
+                      <option value="${s.id}" ${currentReserveId === s.id ? 'selected' : ''}>
+                        ${s.fullName} (${s.gender}, ${s.overallRating} med)
+                      </option>
+                    `).join('')}
+                  </select>
+                </div>
+              `;
+            }).join('');
+          })()}
         </div>
       </div>
     </div>
   `;
 }
 
+function getRelevantStatsForEvent(event, swimmer) {
+  const dist = event.distance;
+  const stroke = event.stroke;
+
+  if (stroke === STROKES.FREE) {
+    if (dist <= 50) {
+      return `Vel: ${Math.round(swimmer.stats.speed)} | Crol: ${Math.round(swimmer.stats.freestyle)} | For: ${Math.round(swimmer.stats.strength)}`;
+    } else if (dist <= 100) {
+      return `Vel: ${Math.round(swimmer.stats.speed)} | Crol: ${Math.round(swimmer.stats.freestyle)} | Fon: ${Math.round(swimmer.stats.distance)}`;
+    } else if (dist <= 200) {
+      return `Crol: ${Math.round(swimmer.stats.freestyle)} | Fon: ${Math.round(swimmer.stats.distance)} | Vel: ${Math.round(swimmer.stats.speed)}`;
+    } else {
+      // 400m, 800m, 1500m
+      return `Resistencia: ${Math.round(swimmer.stats.distance)} | Crol: ${Math.round(swimmer.stats.freestyle)}`;
+    }
+  } else if (stroke === STROKES.IM) {
+    if (dist <= 100) {
+      return `Estilos: ${Math.round(swimmer.stats.IM)} | Vel: ${Math.round(swimmer.stats.speed)}`;
+    } else if (dist <= 200) {
+      return `Estilos: ${Math.round(swimmer.stats.IM)} | Fondo: ${Math.round(swimmer.stats.distance)} | Vel: ${Math.round(swimmer.stats.speed)}`;
+    } else {
+      return `Estilos: ${Math.round(swimmer.stats.IM)} | Resistencia: ${Math.round(swimmer.stats.distance)}`;
+    }
+  } else {
+    // Back, Breast, Fly
+    const strokeLabel = STROKE_LABELS[stroke] ? STROKE_LABELS[stroke].split(' ')[0] : stroke;
+    const strokeVal = Math.round(swimmer.stats[stroke] || 50);
+    if (dist <= 50) {
+      return `${strokeLabel}: ${strokeVal} | Vel: ${Math.round(swimmer.stats.speed)} | For: ${Math.round(swimmer.stats.strength)}`;
+    } else if (dist <= 100) {
+      return `${strokeLabel}: ${strokeVal} | Vel: ${Math.round(swimmer.stats.speed)} | Fon: ${Math.round(swimmer.stats.distance)}`;
+    } else {
+      return `${strokeLabel}: ${strokeVal} | Resistencia: ${Math.round(swimmer.stats.distance)}`;
+    }
+  }
+}
+
+function getEligibleSwimmersForEventSlot(club, event, slotIdx, isFinalPhase) {
+  const currentEntered = club.currentMeetEntries[event.id] || [];
+  const currentlySelectedId = currentEntered[slotIdx] || null;
+  const otherSlotId = slotIdx === 0 ? currentEntered[1] : currentEntered[0];
+
+  // Count individual events in current meet excluding THIS event
+  const meetCounts = {};
+  club.swimmers.forEach(s => meetCounts[s.id] = 0);
+  currentProgram.forEach(ev => {
+    if (!ev.isRelay && ev.id !== event.id) {
+      const list = club.currentMeetEntries[ev.id] || [];
+      list.forEach(sId => {
+        if (sId) meetCounts[sId] = (meetCounts[sId] || 0) + 1;
+      });
+    }
+  });
+
+  return club.swimmers.filter(s => {
+    // 1. Gender check
+    if (s.gender !== event.gender) return false;
+
+    // 2. Can't be in the other slot of the same event
+    if (otherSlotId && s.id === otherSlotId) return false;
+
+    // 3. Max 2 individual events in this session (FEGAN limit)
+    // If already in 2 other events, do not display
+    if (s.id !== currentlySelectedId && meetCounts[s.id] >= PARTICIPATION_LIMITS.MAX_INDIVIDUAL_PER_SESSION) {
+      return false;
+    }
+
+    // 4. Phase total limits
+    const swumPhase = isFinalPhase ? (club.finalEventsSwum[s.id] || 0) : (club.prelimEventsSwum[s.id] || 0);
+    const maxPhase = isFinalPhase ? PARTICIPATION_LIMITS.MAX_INDIVIDUAL_FINAL_TOTAL : PARTICIPATION_LIMITS.MAX_INDIVIDUAL_PRELIM_TOTAL;
+    if (s.id !== currentlySelectedId && swumPhase >= maxPhase) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 function renderIndividualEventCard(club, event, evIdx, enteredIds, isFinalPhase) {
   const isLongDist = [400, 800, 1500].includes(event.distance);
   const isDiv3Prelim = !isFinalPhase && club.division === DIVISIONS.DIV3;
   const maxSlots = isDiv3Prelim && isLongDist ? 1 : 2;
-
-  const eligibleSwimmers = club.swimmers.filter(s => s.gender === event.gender);
 
   return `
     <div class="glass-card p-4 rounded-xl border border-slate-700/60 hover:border-cyan-500/40 transition-colors">
@@ -185,6 +275,7 @@ function renderIndividualEventCard(club, event, evIdx, enteredIds, isFinalPhase)
         ${[0, maxSlots > 1 ? 1 : null].filter(x => x !== null).map(slotIdx => {
           const selectedId = enteredIds[slotIdx] || '';
           const selectedSwimmer = selectedId ? club.getSwimmer(selectedId) : null;
+          const eligibleList = getEligibleSwimmersForEventSlot(club, event, slotIdx, isFinalPhase);
 
           return `
             <div class="p-3 rounded-lg bg-slate-800/40 border border-slate-700/40">
@@ -193,12 +284,12 @@ function renderIndividualEventCard(club, event, evIdx, enteredIds, isFinalPhase)
               </label>
               <select class="select-event-swimmer bg-slate-800 border border-slate-700 text-white text-xs rounded-lg w-full p-2 focus:ring-1 focus:ring-cyan-500" data-event-id="${event.id}" data-slot="${slotIdx}">
                 <option value="">-- Seleccionar Nadador --</option>
-                ${eligibleSwimmers.map(s => {
+                ${eligibleList.map(s => {
                   const estTime = RaceSimulation.formatTime(s.getEstimatedTime(event));
-                  const rating = Math.round(s.getEffectiveEventRating(event));
+                  const statsStr = getRelevantStatsForEvent(event, s);
                   return `
                     <option value="${s.id}" ${selectedId === s.id ? 'selected' : ''}>
-                      ${s.fullName} · ${rating} pts (${estTime})
+                      ${s.fullName} · [${statsStr}] · (${estTime})
                     </option>
                   `;
                 }).join('')}
@@ -211,9 +302,35 @@ function renderIndividualEventCard(club, event, evIdx, enteredIds, isFinalPhase)
   `;
 }
 
+function getEligibleSwimmersForRelayLeg(club, event, legIdx, enteredIds) {
+  const isMixed = event.gender === 'MIXED';
+  const currentlySelectedId = enteredIds[legIdx] || null;
+  // All swimmers selected in other legs of THIS relay
+  const otherLegIds = (enteredIds || []).filter((id, idx) => idx !== legIdx && Boolean(id));
+
+  // Base pool by gender
+  const pool = isMixed ? club.swimmers : club.swimmers.filter(s => s.gender === event.gender);
+
+  return pool.filter(s => {
+    // 1. A swimmer cannot be in any other leg of this same relay
+    if (otherLegIds.includes(s.id)) return false;
+
+    // 2. If mixed relay, ensure 2M + 2F constraint isn't exceeded by this selection
+    if (isMixed && s.id !== currentlySelectedId) {
+      const otherSwimmers = otherLegIds.map(id => club.getSwimmer(id)).filter(Boolean);
+      const mCount = otherSwimmers.filter(sw => sw.gender === 'M').length;
+      const fCount = otherSwimmers.filter(sw => sw.gender === 'F').length;
+
+      if (s.gender === 'M' && mCount >= 2) return false;
+      if (s.gender === 'F' && fCount >= 2) return false;
+    }
+
+    return true;
+  });
+}
+
 function renderRelayEventCard(club, event, evIdx, enteredIds) {
   const isMixed = event.gender === 'MIXED';
-  const eligibleSwimmers = isMixed ? club.swimmers : club.swimmers.filter(s => s.gender === event.gender);
 
   return `
     <div class="glass-card p-4 rounded-xl border border-cyan-500/40 bg-cyan-950/10">
@@ -226,7 +343,7 @@ function renderRelayEventCard(club, event, evIdx, enteredIds) {
               <span class="badge badge-primary text-[10px]">Relevo 4x</span>
             </h4>
             <span class="text-xs text-slate-400">
-              ${isMixed ? 'Mixto (2M + 2F)' : event.gender === 'M' ? 'Masculino' : 'Feminino'} · 4 relevistas obrigatorios
+              ${isMixed ? 'Mixto (2M + 2F)' : event.gender === 'M' ? 'Masculino' : 'Feminino'} · 4 relevistas (sen repetir nadador)
             </span>
           </div>
         </div>
@@ -237,6 +354,7 @@ function renderRelayEventCard(club, event, evIdx, enteredIds) {
           const selectedId = enteredIds[legIdx] || '';
           const legStroke = (event.legs && event.legs[legIdx]) ? event.legs[legIdx] : event.stroke;
           const strokeLabel = STROKE_LABELS[legStroke] || legStroke;
+          const eligibleForLeg = getEligibleSwimmersForRelayLeg(club, event, legIdx, enteredIds);
 
           return `
             <div class="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-xs">
@@ -245,11 +363,18 @@ function renderRelayEventCard(club, event, evIdx, enteredIds) {
               </label>
               <select class="select-relay-swimmer bg-slate-800 border border-slate-700 text-white text-xs rounded-lg w-full p-2" data-event-id="${event.id}" data-leg="${legIdx}">
                 <option value="">-- Seleccionar --</option>
-                ${eligibleSwimmers.map(s => `
-                  <option value="${s.id}" ${selectedId === s.id ? 'selected' : ''}>
-                    ${s.fullName} (${s.gender}, ${s.overallRating} med)
-                  </option>
-                `).join('')}
+                ${eligibleForLeg.map(s => {
+                  const strokeVal = Math.round(s.stats[legStroke] || s.stats.freestyle || 50);
+                  const isLongLeg = (event.legDist || 50) >= 200;
+                  const statExtra = isLongLeg
+                    ? `Fon: ${Math.round(s.stats.distance)}`
+                    : `Vel: ${Math.round(s.stats.speed)}`;
+                  return `
+                    <option value="${s.id}" ${selectedId === s.id ? 'selected' : ''}>
+                      ${s.fullName} (${s.gender}) · ${strokeLabel}: ${strokeVal} (${statExtra})
+                    </option>
+                  `;
+                }).join('')}
               </select>
             </div>
           `;
@@ -386,12 +511,12 @@ function renderLiveRaceView(scheduleEvent) {
             <span>🔊</span> Son Activado
           </button>
 
-          <span class="text-xs text-slate-400 font-mono">
+          <span id="race-event-counter" class="text-xs text-slate-400 font-mono">
             Proba <strong>${activeMeet.currentEventIdx + 1}</strong> de <strong>${activeMeet.meetProgram.length}</strong>
           </span>
 
           <button id="btn-next-event" class="btn btn-success btn-sm font-bold text-xs flex items-center gap-1.5" ${!activeMeet.currentEventFinished ? 'disabled' : ''}>
-            <span>${activeMeet.currentEventIdx + 1 >= activeMeet.meetProgram.length ? '🏁 Finalizar Xornada' : 'Seguinte Proba ➡️'}</span>
+            <span id="btn-next-event-text">${activeMeet.currentEventIdx + 1 >= activeMeet.meetProgram.length ? '🏁 Finalizar Xornada' : 'Seguinte Proba ➡️'}</span>
           </button>
         </div>
       </div>
@@ -400,7 +525,7 @@ function renderLiveRaceView(scheduleEvent) {
       <div class="glass-card rounded-2xl overflow-hidden border border-slate-700/60">
         <div class="p-3 border-b border-slate-800 flex items-center justify-between">
           <h4 class="font-bold text-white text-sm flex items-center gap-2">
-            <span>⏱️</span> Clasificación Oficial da Proba: ${currentEvent.name}
+            <span>⏱️</span> Clasificación Oficial da Proba: <span id="race-event-title-name" class="text-cyan-400 font-bold">${currentEvent.name}</span>
           </h4>
           <span class="text-xs text-slate-400">Puntuación FEGAN aplicada</span>
         </div>
@@ -551,8 +676,16 @@ export function setupMeetEvents(container) {
       if (!swimmerId) {
         club.currentMeetEntries[eventId][leg] = null;
       } else {
+        // Prevent assigning the same swimmer to multiple legs of the same relay
+        const alreadyInRelay = (club.currentMeetEntries[eventId] || []).some((id, idx) => idx !== leg && id === swimmerId);
+        if (alreadyInRelay) {
+          gameState.notify('Este nadador xa está asignado a outra posta deste mesmo relevo!', 'warning');
+          sel.value = club.currentMeetEntries[eventId][leg] || '';
+          return;
+        }
         club.currentMeetEntries[eventId][leg] = swimmerId;
       }
+      gameState.triggerUIUpdate();
     };
   });
 
@@ -563,10 +696,18 @@ export function setupMeetEvents(container) {
       const swimmerId = e.target.value;
       if (!club.meetReserves) club.meetReserves = [];
       if (swimmerId) {
+        // Prevent assigning the same swimmer to multiple reserve slots
+        const alreadyReserve = (club.meetReserves || []).some((id, idx) => idx !== slot && id === swimmerId);
+        if (alreadyReserve) {
+          gameState.notify('Este nadador xa está seleccionado noutro posto de reserva!', 'warning');
+          sel.value = club.meetReserves[slot] || '';
+          return;
+        }
         club.meetReserves[slot] = swimmerId;
       } else {
         club.meetReserves[slot] = null;
       }
+      gameState.triggerUIUpdate();
     };
   });
 
@@ -574,6 +715,27 @@ export function setupMeetEvents(container) {
   const confirmBtn = container.querySelector('#btn-confirm-entries');
   if (confirmBtn) {
     confirmBtn.onclick = () => {
+      // Validate that no relay contains duplicate swimmers
+      for (const ev of currentProgram) {
+        if (ev.isRelay) {
+          const legIds = (club.currentMeetEntries[ev.id] || []).filter(Boolean);
+          const uniqueIds = new Set(legIds);
+          if (uniqueIds.size !== legIds.length) {
+            gameState.notify(`No relevo "${ev.name}" hai nadadores repetidos. Cada posta debe nadala un nadador diferente.`, 'error');
+            return;
+          }
+          if (ev.gender === 'MIXED' && legIds.length === 4) {
+            const swimmers = legIds.map(id => club.getSwimmer(id)).filter(Boolean);
+            const mCount = swimmers.filter(s => s.gender === 'M').length;
+            const fCount = swimmers.filter(s => s.gender === 'F').length;
+            if (mCount !== 2 || fCount !== 2) {
+              gameState.notify(`No relevo mixto "${ev.name}" deben competir exactamente 2 nadadores masculinos e 2 femininos.`, 'error');
+              return;
+            }
+          }
+        }
+      }
+
       // Prepare all AI teams
       const isFinalPhase = leagueEngine.phase === 'final_phase';
       leagueEngine.prepareAIMeetEntries(currentProgram, isFinalPhase);
@@ -623,6 +785,7 @@ function startMeetSimulation(container) {
   activeMeet.simSpeed = 1.0;
   activeMeet.elapsedSeconds = 0;
   activeMeet.divisionName = club.division;
+  activeMeet.meetHistory = [];
 
   // Reset day-of-meet fatigue for all participating clubs
   const clubs = leagueEngine.divisions[club.division] || [];
@@ -651,6 +814,29 @@ function setupRaceCanvasAndLoop(container) {
   const currentEvent = activeMeet.meetProgram[activeMeet.currentEventIdx];
   const clubs = leagueEngine.divisions[activeMeet.divisionName] || [];
 
+  // Update dynamic UI indicators for the current event
+  const counterEl = document.getElementById('race-event-counter');
+  if (counterEl) {
+    counterEl.innerHTML = `Proba <strong>${activeMeet.currentEventIdx + 1}</strong> de <strong>${activeMeet.meetProgram.length}</strong>`;
+  }
+  const nameEl = document.getElementById('race-event-title-name');
+  if (nameEl) {
+    nameEl.textContent = currentEvent.name;
+  }
+  const nextBtnText = document.getElementById('btn-next-event-text');
+  if (nextBtnText) {
+    nextBtnText.textContent = (activeMeet.currentEventIdx + 1 >= activeMeet.meetProgram.length) ? '🏁 Finalizar Xornada' : 'Seguinte Proba ➡️';
+  }
+  const nextBtn = document.getElementById('btn-next-event');
+  if (nextBtn) {
+    nextBtn.disabled = true;
+  }
+  // Clear previous event results from the live table
+  const tbody = document.getElementById('live-results-tbody');
+  if (tbody) {
+    tbody.innerHTML = '';
+  }
+
   // Simulate this event
   const eventSimulation = RaceSimulation.simulateEvent({
     event: currentEvent,
@@ -659,6 +845,9 @@ function setupRaceCanvasAndLoop(container) {
     isFinalPhase: activeMeet.isFinalPhase,
     eventIndex: activeMeet.currentEventIdx
   });
+
+  if (!activeMeet.meetHistory) activeMeet.meetHistory = [];
+  activeMeet.meetHistory[activeMeet.currentEventIdx] = eventSimulation;
 
   activeMeet.currentEventResults = eventSimulation.results;
   activeMeet.currentEventFinished = false;
@@ -801,13 +990,18 @@ function updateResultsTable(results) {
 
 function finishEntireMeet() {
   const { activeMeet, leagueEngine } = gameState;
-  const clubs = leagueEngine.divisions[activeMeet.divisionName] || [];
+
+  // Use the live simulated results from meetHistory if available
+  const precomputed = (activeMeet.meetHistory && activeMeet.meetHistory.length === activeMeet.meetProgram.length)
+    ? activeMeet.meetHistory
+    : null;
 
   // Assign xornada points
   const res = leagueEngine.simulateDivisionMeet(
     activeMeet.divisionName,
     activeMeet.meetProgram,
-    activeMeet.isFinalPhase
+    activeMeet.isFinalPhase,
+    precomputed
   );
 
   activeMeet.finalStandings = res.clubStandingsThisMeet;

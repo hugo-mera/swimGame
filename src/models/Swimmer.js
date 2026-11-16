@@ -38,6 +38,8 @@ export class Swimmer {
     this.racesCount = data.racesCount || 0;
     this.winsCount = data.winsCount || 0;
     this.trainingLog = data.trainingLog || [];
+    // Stat changes in the last training week (key -> +/- number)
+    this.lastStatChanges = data.lastStatChanges || {};
   }
 
   get fullName() {
@@ -75,7 +77,8 @@ export class Swimmer {
 
   calculateBaseSalary() {
     const rating = this.overallRating;
-    return Math.max(40, Math.round(Math.pow(rating / 10, 2.2) * 12));
+    // Realistic amateur & club swimming stipends (€/week: ~8-20€ in Div3, up to 60-90€ in Div Honra)
+    return Math.max(5, Math.round(Math.pow(rating / 35, 2.0) * 8));
   }
 
   calculateMarketValue(multiplier = 1.0) {
@@ -142,19 +145,20 @@ export class Swimmer {
       strokeSkill * strokeWeight
     );
 
-    // Morale modifier (±4%)
-    const moraleMod = 1 + (this.morale - 75) * 0.0016;
+    // Morale modifier (±3%)
+    const moraleMod = 1 + (this.morale - 75) * 0.0012;
 
-    // Chronic and acute fatigue effect (up to -8% if exhausted)
-    const baseFatiguePenalty = Math.max(0, (this.chronicFatigue * 0.5 + this.acuteFatigue * 0.5 - 40) * 0.002);
+    // Chronic and acute fatigue effect (progressive realistic curve, up to -4% if heavily fatigued)
+    const combinedFatigue = this.chronicFatigue * 0.5 + this.acuteFatigue * 0.5;
+    const baseFatiguePenalty = Math.max(0, (combinedFatigue - 35) * 0.0008);
 
-    // Meet day fatigue effect (accumulated in current competition session, up to -12%)
-    const meetFatiguePenalty = this.raceMeetFatigue * 0.0015;
+    // Meet day fatigue effect (accumulated in current competition session, up to -5%)
+    const meetFatiguePenalty = this.raceMeetFatigue * 0.0006;
 
-    // Form bonus/penalty: Peaked taper grants supercompensation bonus (+3%)
-    const formBonus = (this.form - 75) * 0.0008;
+    // Form bonus/penalty: Peaked taper grants supercompensation bonus (+2.5%)
+    const formBonus = (this.form - 70) * 0.0006;
 
-    const totalMod = Math.max(0.70, (moraleMod - baseFatiguePenalty - meetFatiguePenalty + formBonus));
+    const totalMod = Math.max(0.80, (moraleMod - baseFatiguePenalty - meetFatiguePenalty + formBonus));
     return rawSkill * totalMod;
   }
 
@@ -230,7 +234,7 @@ export class Swimmer {
   recoverBetweenEvents(gap = 1, equipmentBonus = 0) {
     if (this.raceMeetFatigue <= 0) return;
     // Standard meet has ~4-5 mins per event. A gap of 10 events gives ~45 mins rest.
-    const recoveryRate = Math.min(0.85, (gap * 0.08) * (1 + equipmentBonus));
+    const recoveryRate = Math.min(0.90, (gap * 0.12) * (1 + equipmentBonus));
     this.raceMeetFatigue = Math.max(0, this.raceMeetFatigue * (1 - recoveryRate));
   }
 
@@ -249,24 +253,29 @@ export class Swimmer {
     equipmentBonus = 0,
     recoveryBonus = 0,
     difficultyMultiplier = 1.0,
-    decayMultiplier = 1.0
+    decayMultiplier = 1.0,
+    fatigueAccumulationMultiplier = 1.0,
+    fatigueRecoveryMultiplier = 1.0
   }) {
-    // 1. Fatigue adjustments
+    // Save snapshot of previous stats to track positive (green) and negative (red) changes
+    const prevStats = { ...this.stats };
+
+    // 1. Fatigue adjustments (Banister fitness-fatigue impulse response model)
     const volFactors = { low: 0.7, medium: 1.0, high: 1.35, extreme: 1.7 };
     const volFactor = volFactors[volumeLevel] || 1.0;
 
-    let acuteFatigueChange = 12 * volFactor * phase.fatigueAccumulation * (1 - equipmentBonus * 0.15);
+    let acuteFatigueChange = 14 * volFactor * phase.fatigueAccumulation * fatigueAccumulationMultiplier * (1 - equipmentBonus * 0.15);
     
     // Taper phase or Recovery phase clears fatigue rapidly
     if (phase.fatigueClearanceBonus) {
-      acuteFatigueChange = -20 * phase.fatigueClearanceBonus * (1 + recoveryBonus);
-      this.chronicFatigue = Math.max(5, this.chronicFatigue - 15 * phase.fatigueClearanceBonus * (1 + recoveryBonus));
+      this.acuteFatigue = Math.max(5, Math.min(95, this.acuteFatigue * 0.25 - 10 * phase.fatigueClearanceBonus * fatigueRecoveryMultiplier * (1 + recoveryBonus)));
+      this.chronicFatigue = Math.max(5, this.chronicFatigue - 14 * phase.fatigueClearanceBonus * fatigueRecoveryMultiplier * (1 + recoveryBonus));
     } else {
+      // Acute fatigue partially decays each week (Banister weekly half-life) while new load is absorbed
+      this.acuteFatigue = Math.max(5, Math.min(95, this.acuteFatigue * 0.45 + acuteFatigueChange));
       // Chronic fatigue builds from sustained acute fatigue
-      this.chronicFatigue = Math.max(5, Math.min(95, this.chronicFatigue + (this.acuteFatigue > 35 ? 4 : -2)));
+      this.chronicFatigue = Math.max(5, Math.min(95, this.chronicFatigue + (this.acuteFatigue > 35 ? 3 : this.acuteFatigue > 25 ? 1 : -1)));
     }
-
-    this.acuteFatigue = Math.max(5, Math.min(95, this.acuteFatigue + acuteFatigueChange));
 
     // 2. Stat growth calculations based on phase & intensity
     const growthBase = 0.45 * difficultyMultiplier * (1 + equipmentBonus);
@@ -317,6 +326,13 @@ export class Swimmer {
     // Clean up bounds
     this.chronicFatigue = Math.round(this.chronicFatigue);
     this.acuteFatigue = Math.round(this.acuteFatigue);
+
+    // Record week-over-week stat changes
+    this.lastStatChanges = {};
+    STAT_KEYS.forEach(stat => {
+      const delta = Math.round((this.stats[stat] - prevStats[stat]) * 10) / 10;
+      this.lastStatChanges[stat] = delta;
+    });
   }
 
   updatePersonalBest(eventId, time) {

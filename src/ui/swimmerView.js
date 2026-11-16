@@ -7,6 +7,21 @@ let activeFilterGender = 'ALL';
 let activeFilterStroke = 'ALL';
 let selectedSwimmerModalId = null;
 
+function renderStatCell(val, delta = 0) {
+  let indicator = '';
+  if (delta > 0) {
+    indicator = `<span class="text-[9px] text-emerald-400 font-bold block leading-none" title="Mellorou +${delta} puntos esta semana">▲+${delta}</span>`;
+  } else if (delta < 0) {
+    indicator = `<span class="text-[9px] text-rose-400 font-bold block leading-none" title="Baixou ${delta} puntos esta semana">▼${delta}</span>`;
+  }
+  return `
+    <div class="flex flex-col items-center justify-center">
+      <span class="font-bold text-slate-200 font-mono text-xs">${Math.round(val)}</span>
+      ${indicator}
+    </div>
+  `;
+}
+
 export function renderSwimmers() {
   const { leagueEngine } = gameState;
   const club = leagueEngine.playerClub;
@@ -27,10 +42,14 @@ export function renderSwimmers() {
       <!-- Header & Filter Bar -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-card p-4 rounded-2xl">
         <div>
-          <h2 class="text-xl font-bold text-white flex items-center gap-2">
-            <span>👥</span> Plantilla do Club (${club.swimmers.length} Nadadores)
-          </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Xestiona os atributos, estado de fatiga e grupo de adestramento de cada nadador</p>
+          <div class="flex items-center gap-2">
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+              <span>👥</span> Plantilla do Club (${club.swimmers.length} Nadadores)
+            </h2>
+            <span class="badge badge-success text-[10px]">▲ Verde = Mellora</span>
+            <span class="badge badge-danger text-[10px]">▼ Vermello = Empeoramento</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">Xestiona os atributos, evolución semanal, estado de fatiga e grupo de adestramento de cada nadador</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -87,6 +106,8 @@ export function renderSwimmers() {
                 if (totalFatigue > 60) fatigueColor = 'text-rose-400 font-bold';
                 else if (totalFatigue > 35) fatigueColor = 'text-amber-400';
 
+                const changes = swimmer.lastStatChanges || {};
+
                 return `
                   <tr class="hover:bg-slate-800/40 transition-colors">
                     <td class="py-3 px-3">
@@ -105,14 +126,14 @@ export function renderSwimmers() {
                     <td class="py-3 px-2 text-center">
                       <span class="font-extrabold text-sm text-cyan-300 font-mono">${swimmer.overallRating}</span>
                     </td>
-                    <td class="py-3 px-2 text-center font-mono ${swimmer.stats.speed >= 75 ? 'text-cyan-300 font-bold' : 'text-slate-300'}">${Math.round(swimmer.stats.speed)}</td>
-                    <td class="py-3 px-2 text-center font-mono ${swimmer.stats.distance >= 75 ? 'text-emerald-300 font-bold' : 'text-slate-300'}">${Math.round(swimmer.stats.distance)}</td>
-                    <td class="py-3 px-2 text-center font-mono ${swimmer.stats.strength >= 75 ? 'text-amber-300 font-bold' : 'text-slate-300'}">${Math.round(swimmer.stats.strength)}</td>
-                    <td class="py-3 px-2 text-center font-mono text-slate-300">${Math.round(swimmer.stats.freestyle)}</td>
-                    <td class="py-3 px-2 text-center font-mono text-slate-300">${Math.round(swimmer.stats.backstroke)}</td>
-                    <td class="py-3 px-2 text-center font-mono text-slate-300">${Math.round(swimmer.stats.breaststroke)}</td>
-                    <td class="py-3 px-2 text-center font-mono text-slate-300">${Math.round(swimmer.stats.butterfly)}</td>
-                    <td class="py-3 px-2 text-center font-mono text-slate-300">${Math.round(swimmer.stats.IM)}</td>
+                    <td class="py-2 px-1 text-center font-mono">${renderStatCell(swimmer.stats.speed, changes.speed)}</td>
+                    <td class="py-2 px-1 text-center font-mono">${renderStatCell(swimmer.stats.distance, changes.distance)}</td>
+                    <td class="py-2 px-1 text-center font-mono">${renderStatCell(swimmer.stats.strength, changes.strength)}</td>
+                    <td class="py-2 px-1 text-center font-mono">${renderStatCell(swimmer.stats.freestyle, changes.freestyle)}</td>
+                    <td class="py-2 px-1 text-center font-mono">${renderStatCell(swimmer.stats.backstroke, changes.backstroke)}</td>
+                    <td class="py-2 px-1 text-center font-mono">${renderStatCell(swimmer.stats.breaststroke, changes.breaststroke)}</td>
+                    <td class="py-2 px-1 text-center font-mono">${renderStatCell(swimmer.stats.butterfly, changes.butterfly)}</td>
+                    <td class="py-2 px-1 text-center font-mono">${renderStatCell(swimmer.stats.IM, changes.IM)}</td>
                     <td class="py-3 px-3 text-center">
                       <span class="${fatigueColor} font-mono">${totalFatigue}%</span>
                     </td>
@@ -182,6 +203,11 @@ function renderSwimmerProfileModal(swimmer) {
             <div class="space-y-2.5">
               ${STAT_KEYS.map(key => {
                 const val = Math.round(swimmer.stats[key]);
+                const delta = (swimmer.lastStatChanges && swimmer.lastStatChanges[key]) || 0;
+                let deltaText = '';
+                if (delta > 0) deltaText = `<span class="text-emerald-400 font-bold text-[11px] ml-1">▲+${delta}</span>`;
+                else if (delta < 0) deltaText = `<span class="text-rose-400 font-bold text-[11px] ml-1">▼${delta}</span>`;
+
                 let colorClass = 'bg-cyan-500';
                 if (key === 'distance') colorClass = 'bg-emerald-500';
                 if (key === 'strength') colorClass = 'bg-amber-500';
@@ -191,7 +217,7 @@ function renderSwimmerProfileModal(swimmer) {
                   <div>
                     <div class="flex justify-between text-xs mb-1">
                       <span class="text-slate-300 font-medium">${STAT_LABELS[key]}</span>
-                      <span class="font-mono font-bold text-white">${val}/100</span>
+                      <span class="font-mono font-bold text-white">${val}/100 ${deltaText}</span>
                     </div>
                     <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                       <div class="${colorClass} h-full rounded-full transition-all duration-300" style="width: ${val}%"></div>

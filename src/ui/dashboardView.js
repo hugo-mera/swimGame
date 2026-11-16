@@ -15,6 +15,8 @@ export function renderDashboard() {
   const totalWeeklySalaries = club.calculateWeeklySalaries();
   const facilityMaintenance = club.calculateFacilityMaintenance();
   const totalWeeklyExpenses = totalWeeklySalaries + facilityMaintenance;
+  const weeklySponsorshipIncome = club.calculateWeeklySponsorshipIncome();
+  const isMeetWeek = currentSchedule.type === 'meet' || currentSchedule.type === 'final_meet';
 
   // Find top star swimmer
   const starSwimmer = [...club.swimmers].sort((a, b) => b.peakRating - a.peakRating)[0];
@@ -50,11 +52,12 @@ export function renderDashboard() {
         <div class="glass-card p-5 rounded-2xl flex flex-col justify-between">
           <div>
             <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Finanzas do Club</span>
-            <div class="text-3xl font-extrabold text-emerald-400 mt-1">
+            <div class="text-3xl font-black ${club.funds < 0 ? 'text-rose-500' : 'text-emerald-400'} mt-1 font-mono">
               ${club.funds.toLocaleString()} €
             </div>
+            ${club.funds < 0 ? '<span class="text-[11px] text-rose-400 font-bold block mt-0.5">⚠️ SALDO EN NEGATIVO (DÉBEDA)</span>' : ''}
             <p class="text-xs text-slate-400 mt-1">
-              Gastos semanais: <span class="text-rose-400 font-semibold">-${totalWeeklyExpenses.toLocaleString()} €/sem</span>
+              Gastos: <span class="text-rose-400 font-semibold">-${totalWeeklyExpenses.toLocaleString()} €/sem</span> · Patrocinios: <span class="text-emerald-400 font-semibold">+${weeklySponsorshipIncome.toLocaleString()} €/sem</span>
             </p>
           </div>
           <div class="mt-3 pt-3 border-t border-slate-700/60 text-xs flex justify-between text-slate-300">
@@ -64,11 +67,11 @@ export function renderDashboard() {
         </div>
 
         <!-- Calendar / Week Status -->
-        <div class="glass-card p-5 rounded-2xl flex flex-col justify-between">
+        <div class="glass-card p-5 rounded-2xl flex flex-col justify-between ${isMeetWeek ? 'border-2 border-amber-500/80 bg-amber-950/20' : ''}">
           <div>
             <div class="flex items-center justify-between">
               <span class="text-xs uppercase tracking-wider text-cyan-400 font-semibold">Semana ${leagueEngine.currentWeek} de ${leagueEngine.totalWeeks}</span>
-              <span class="badge badge-warning text-xs">${currentSchedule.month}</span>
+              <span class="badge ${isMeetWeek ? 'badge-warning font-bold' : 'badge-primary'} text-xs">${isMeetWeek ? 'Xornada Oficial' : currentSchedule.month}</span>
             </div>
             <h3 class="text-lg font-bold text-white mt-1 leading-snug">${currentSchedule.name}</h3>
             <p class="text-xs text-slate-300 mt-1 flex items-center gap-1.5">
@@ -78,9 +81,15 @@ export function renderDashboard() {
             ${currentSchedule.isCustomPhase ? '<span class="text-[10px] text-emerald-400 font-semibold block mt-0.5">★ Carga contemporizada polo adestrador</span>' : ''}
           </div>
           <div class="mt-3 pt-2 space-y-1.5">
-            <button id="btn-advance-week" class="btn btn-primary w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2">
-              <span>⏩</span> Avanzar Semana (Adestrar)
-            </button>
+            ${isMeetWeek ? `
+              <button id="btn-mandatory-meet" class="btn btn-warning w-full py-3 text-xs font-black flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/25 animate-pulse">
+                <span>🏊‍♂️</span> ¡COMPETICIÓN OFICIAL! IR Á CARREIRA
+              </button>
+            ` : `
+              <button id="btn-advance-week" class="btn btn-primary w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2">
+                <span>⏩</span> Avanzar Semana (Adestrar)
+              </button>
+            `}
             <button id="btn-goto-training-dashboard" class="btn btn-outline w-full py-1.5 text-xs text-cyan-300 hover:text-white flex items-center justify-center gap-1">
               <span>⚙️</span> Axustar Cargas & Descargas
             </button>

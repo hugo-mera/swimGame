@@ -8,7 +8,8 @@ import {
   SCORING_RULES,
   PERIODIZATION_PHASES,
   STAT_KEYS,
-  STROKES
+  STROKES,
+  PRIZE_MONEY
 } from '../constants.js';
 import { Club } from '../models/Club.js';
 import { Swimmer } from '../models/Swimmer.js';
@@ -116,9 +117,9 @@ export class LeagueEngine {
     else if (isDiv1) { baseMin = 65; baseMax = 82; }
     else if (isDiv2) { baseMin = 54; baseMax = 70; }
     else {
-      // Div 3: Player club gets slightly customized humble starter team
-      baseMin = club.isPlayer ? 42 : 44;
-      baseMax = club.isPlayer ? 62 : 64;
+      // Div 3: Balanced baseline across all clubs in 3ª División (~56 average rating)
+      baseMin = 46;
+      baseMax = 66;
     }
 
     const firstNamesM = ['Brais', 'Antón', 'Roi', 'Iago', 'Mateo', 'Lucas', 'Martín', 'Alex', 'Adrián', 'Pablo', 'Diego', 'Hugo', 'David', 'Manuel', 'Álvaro'];
@@ -281,7 +282,9 @@ export class LeagueEngine {
             equipmentBonus: equipBonus,
             recoveryBonus: recoveryBonus,
             difficultyMultiplier: club.isPlayer ? this.difficulty.statGrowthMultiplier : 1.0,
-            decayMultiplier: club.isPlayer ? this.difficulty.statDecayMultiplier : 1.0
+            decayMultiplier: club.isPlayer ? this.difficulty.statDecayMultiplier : 1.0,
+            fatigueAccumulationMultiplier: club.isPlayer ? this.difficulty.fatigueAccumulationMultiplier : 1.0,
+            fatigueRecoveryMultiplier: club.isPlayer ? this.difficulty.fatigueRecoveryMultiplier : 1.0
           });
         });
       });
@@ -294,18 +297,22 @@ export class LeagueEngine {
   processWeeklyFinances() {
     Object.values(this.divisions).forEach(clubs => {
       clubs.forEach(club => {
-        // Base weekly subsidy from federation & local sponsors
-        let weeklyIncome = 350;
-        if (club.division === DIVISIONS.HONRA) weeklyIncome = 1200;
-        else if (club.division === DIVISIONS.DIV1) weeklyIncome = 800;
-        else if (club.division === DIVISIONS.DIV2) weeklyIncome = 550;
+        // Base weekly subsidy from federation & membership dues
+        let baseSubsidy = 250;
+        if (club.division === DIVISIONS.HONRA) baseSubsidy = 850;
+        else if (club.division === DIVISIONS.DIV1) baseSubsidy = 550;
+        else if (club.division === DIVISIONS.DIV2) baseSubsidy = 380;
 
+        // Add weekly sponsorship revenue
+        const sponsorIncome = club.calculateWeeklySponsorshipIncome();
+
+        let totalWeeklyIncome = baseSubsidy + sponsorIncome;
         if (club.isPlayer) {
-          weeklyIncome = Math.round(weeklyIncome * this.difficulty.prizeMoneyMultiplier);
+          totalWeeklyIncome = Math.round(totalWeeklyIncome * this.difficulty.prizeMoneyMultiplier);
         }
 
         const expenses = club.calculateTotalWeeklyExpenses();
-        club.funds += (weeklyIncome - expenses);
+        club.funds += (totalWeeklyIncome - expenses);
       });
     });
   }
@@ -386,24 +393,27 @@ export class LeagueEngine {
   /**
    * Simulates an entire meet for a division
    */
-  simulateDivisionMeet(divisionName, meetProgram, isFinalPhase = false) {
+  simulateDivisionMeet(divisionName, meetProgram, isFinalPhase = false, precomputedResults = null) {
     const clubs = this.divisions[divisionName] || [];
-    const meetResults = [];
+    let meetResults = precomputedResults;
 
-    // Reset day-of-meet fatigue for all participating swimmers
-    clubs.forEach(c => c.swimmers.forEach(s => s.resetMeetFatigue()));
+    if (!meetResults) {
+      meetResults = [];
+      // Reset day-of-meet fatigue for all participating swimmers
+      clubs.forEach(c => c.swimmers.forEach(s => s.resetMeetFatigue()));
 
-    // Simulate event by event in exact circular order
-    meetProgram.forEach((event, eventIdx) => {
-      const eventResult = RaceSimulation.simulateEvent({
-        event,
-        division: divisionName,
-        clubs,
-        isFinalPhase,
-        eventIndex: eventIdx
+      // Simulate event by event in exact circular order
+      meetProgram.forEach((event, eventIdx) => {
+        const eventResult = RaceSimulation.simulateEvent({
+          event,
+          division: divisionName,
+          clubs,
+          isFinalPhase,
+          eventIndex: eventIdx
+        });
+        meetResults.push(eventResult);
       });
-      meetResults.push(eventResult);
-    });
+    }
 
     // Circular Section 5.3: Calculate ranking points for this xornada
     // Rank clubs based on total points scored during this xornada
@@ -429,6 +439,8 @@ export class LeagueEngine {
       ? SCORING_RULES.PRELIM_POINTS_7_PLUS_CLUBS.XORNADA_RANK
       : SCORING_RULES.PRELIM_POINTS_6_CLUBS.XORNADA_RANK;
 
+    const divisionPrizes = PRIZE_MONEY.PER_MEET_BY_DIVISION[divisionName] || PRIZE_MONEY.PER_MEET_BY_DIVISION[DIVISIONS.DIV3];
+
     xornadaClubScores.forEach((entry, rankIdx) => {
       const xornadaPts = rankPointsTable[rankIdx] || 1;
       if (!isFinalPhase) {
@@ -439,6 +451,14 @@ export class LeagueEngine {
       entry.club.xornadaPlacements.push(rankIdx + 1);
       entry.xornadaRank = rankIdx + 1;
       entry.xornadaPointsEarned = xornadaPts;
+
+      // Award Xornada Prize Money
+      let prize = divisionPrizes[rankIdx] || 200;
+      if (entry.club.isPlayer) {
+        prize = Math.round(prize * this.difficulty.prizeMoneyMultiplier);
+      }
+      entry.club.funds += prize;
+      entry.prizeMoneyEarned = prize;
     });
 
     // Record meet participation for limit tracking
@@ -541,6 +561,20 @@ export class LeagueEngine {
       this.divisions[lowerDiv] = this.divisions[lowerDiv].filter(c => !promotedClubs.includes(c)).concat(relegatedClubs);
       this.divisions[upperDiv] = this.divisions[upperDiv].filter(c => !relegatedClubs.includes(c)).concat(promotedClubs);
     }
+
+    // Award Big End-of-Season Championship Prize Money
+    Object.values(this.divisions).forEach(divClubs => {
+      const sortedClubs = [...divClubs].sort((a, b) => (b.finalLeaguePoints - a.finalLeaguePoints) || (b.finalTotalPoints - a.finalTotalPoints));
+      sortedClubs.forEach((c, rankIdx) => {
+        const bonusObj = PRIZE_MONEY.SEASON_END_BONUS[rankIdx] || PRIZE_MONEY.SEASON_END_BONUS[PRIZE_MONEY.SEASON_END_BONUS.length - 1];
+        let endPrize = bonusObj.prize;
+        if (c.isPlayer) {
+          endPrize = Math.round(endPrize * this.difficulty.prizeMoneyMultiplier);
+        }
+        c.funds += endPrize;
+        c.lastSeasonPrize = endPrize;
+      });
+    });
 
     // Award Leopold Bremón Trophies for Best Swimmers
     const bestSwimmers = this.awardSeasonTrophies();

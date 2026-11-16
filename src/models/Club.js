@@ -1,5 +1,5 @@
 // Club Model - Represents a swimming team in the Galician League
-import { PARTICIPATION_LIMITS, EQUIPMENT_CATALOG, DIVISIONS } from '../constants.js';
+import { PARTICIPATION_LIMITS, EQUIPMENT_CATALOG, DIVISIONS, RELAY_EVENT_IDS } from '../constants.js';
 
 export class Club {
   constructor(data = {}) {
@@ -15,6 +15,9 @@ export class Club {
 
     // Owned Equipment / Facilities IDs
     this.equipment = data.equipment || ['pull_kick'];
+
+    // Active Sponsors generating weekly revenue
+    this.sponsors = data.sponsors || this.getDefaultSponsors();
 
     // Swimmers
     this.swimmers = []; // populated via addSwimmer
@@ -173,12 +176,37 @@ export class Club {
     });
   }
 
+  getDefaultSponsors() {
+    return [
+      {
+        id: 'sp_concello',
+        name: 'Concello e Deputación (Subvención ao Deporte Base)',
+        category: 'Institucional',
+        weeklyIncome: 350,
+        icon: '🏛️',
+        description: 'Apoio municipal para o fomento da natación de base e canteira galega.'
+      },
+      {
+        id: 'sp_local_business',
+        name: 'Comercio Local & Clínicas de Fisioterapia',
+        category: 'Comercial',
+        weeklyIncome: 180,
+        icon: '🏪',
+        description: 'Patrocinador local de proximidade que colabora co club.'
+      }
+    ];
+  }
+
+  calculateWeeklySponsorshipIncome() {
+    return (this.sponsors || []).reduce((acc, sp) => acc + (sp.weeklyIncome || 0), 0);
+  }
+
   calculateWeeklySalaries() {
-    return this.swimmers.reduce((acc, s) => acc + (s.salary || 50), 0);
+    return this.swimmers.reduce((acc, s) => acc + (s.salary || 15), 0);
   }
 
   calculateFacilityMaintenance() {
-    return Math.round(this.equipment.length * 65);
+    return Math.round(this.equipment.length * 10);
   }
 
   calculateTotalWeeklyExpenses() {
@@ -218,8 +246,9 @@ export class Club {
       // 3. Session limit check: Max 2 individual events per swimmer in this meet / session
       let individualEventsInCurrentMeet = 0;
       Object.entries(currentEntries).forEach(([evId, enteredList]) => {
-        if (enteredList.includes(swimmer.id)) {
-          // Check if this event was individual
+        // Exclude relays (FEGAN Circular 26-14: relays do not count towards individual limits)
+        if (RELAY_EVENT_IDS.has(evId)) return;
+        if (Array.isArray(enteredList) && enteredList.includes(swimmer.id)) {
           individualEventsInCurrentMeet++;
         }
       });
@@ -247,9 +276,11 @@ export class Club {
 
   recordMeetParticipation(isFinalPhase = false) {
     Object.entries(this.currentMeetEntries).forEach(([eventId, swimmerIds]) => {
-      // Don't count relays in individual limits
+      // Don't count relays in individual limits (Circular 26-14)
+      if (RELAY_EVENT_IDS.has(eventId)) return;
       if (Array.isArray(swimmerIds)) {
         swimmerIds.forEach(sId => {
+          if (!sId) return;
           if (!isFinalPhase) {
             this.prelimEventsSwum[sId] = (this.prelimEventsSwum[sId] || 0) + 1;
           } else {

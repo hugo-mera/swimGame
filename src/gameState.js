@@ -141,6 +141,7 @@ class GameState {
             funds: c.funds,
             reputation: c.reputation,
             equipment: c.equipment,
+            sponsors: c.sponsors,
             trainingGroups: c.trainingGroups,
             customWeeklyPhases: c.customWeeklyPhases,
             prelimEventsSwum: c.prelimEventsSwum,
@@ -171,7 +172,8 @@ class GameState {
               personalBests: s.personalBests,
               seasonPoints: s.seasonPoints,
               racesCount: s.racesCount,
-              winsCount: s.winsCount
+              winsCount: s.winsCount,
+              lastStatChanges: s.lastStatChanges
             }))
           }))
         ])

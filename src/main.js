@@ -69,7 +69,7 @@ function renderApp() {
           <div class="flex items-center gap-3">
             <div class="hidden sm:block text-right">
               <span class="text-[10px] text-slate-400 font-semibold block uppercase">Semana ${leagueEngine.currentWeek}/36</span>
-              <span class="text-xs font-bold text-emerald-400 font-mono">${club.funds.toLocaleString()} €</span>
+              <span class="text-xs font-mono font-bold ${club.funds < 0 ? 'text-rose-400 font-black' : 'text-emerald-400'}">${club.funds.toLocaleString()} €</span>
             </div>
 
             <!-- Save / Load Dropdown or buttons -->
@@ -194,9 +194,26 @@ function setupMainEvents(root) {
   const advanceBtn = root.querySelector('#btn-advance-week');
   if (advanceBtn) {
     advanceBtn.onclick = () => {
+      const currentEv = gameState.leagueEngine.getCurrentScheduleEvent();
+      const isRaceWeek = currentEv.type === 'meet' || currentEv.type === 'final_meet';
+      if (isRaceWeek) {
+        gameState.notify('¡É semana de competición oficial! Debes disputar as carreiras na pestana de Competición.', 'error');
+        gameState.activeTab = 'meet';
+        renderApp();
+        return;
+      }
       const res = gameState.leagueEngine.advanceWeek();
-      gameState.notify(`Semana ${res.completedWeek} completada! Adestramentos aplicados.`, 'info');
+      gameState.notify(`Semana ${res.completedWeek} completada! Atributos e fatiga actualizados (mira os indicadores ▲/▼ na Plantilla).`, 'info');
       gameState.saveToLocalStorage();
+      renderApp();
+    };
+  }
+
+  // Mandatory meet button
+  const mandatoryMeetBtn = root.querySelector('#btn-mandatory-meet');
+  if (mandatoryMeetBtn) {
+    mandatoryMeetBtn.onclick = () => {
+      gameState.activeTab = 'meet';
       renderApp();
     };
   }
@@ -253,5 +270,9 @@ function setupMainEvents(root) {
   }
 }
 
-// Start app on DOMContentLoaded
-document.addEventListener('DOMContentLoaded', initApp);
+// Start app safely whether DOM is already loaded or still loading
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}

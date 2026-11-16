@@ -174,4 +174,37 @@ assert(playerClub.customWeeklyPhases[33] === 'taper', 'Week 33 auto-set to taper
 
 console.log('✅ All Coach Load Contemporization tests passed!');
 
+// 7. Test Economy & Positive Cash Flow (No 30k€ debt!)
+console.log('\nTesting Club Economy & Cash Flow...');
+const startingBalance = playerClub.funds;
+console.log(`Starting Balance: ${startingBalance} €`);
+const weeklySalaries = playerClub.calculateWeeklySalaries();
+const weeklySponsors = playerClub.calculateWeeklySponsorshipIncome();
+const weeklyMaintenance = playerClub.calculateFacilityMaintenance();
+
+console.log(`Weekly Salaries (14 swimmers): ${weeklySalaries} €/sem`);
+console.log(`Weekly Sponsors: +${weeklySponsors} €/sem`);
+console.log(`Weekly Maintenance: -${weeklyMaintenance} €/sem`);
+
+assert(weeklySalaries < 400, `Weekly salaries are realistic and low: ${weeklySalaries} €`);
+assert(weeklySponsors >= 450, `Weekly sponsors income is healthy: ${weeklySponsors} €`);
+
+// Simulate 4 weeks of advances
+for (let w = 0; w < 4; w++) {
+  engine.advanceWeek();
+}
+console.log(`Balance after 4 weeks: ${playerClub.funds} € (Change: ${playerClub.funds - startingBalance} €)`);
+assert(playerClub.funds > startingBalance, 'Player club made positive profit over 4 weeks and is NOT in debt!');
+
+// Check stat changes recorded
+assert(playerClub.swimmers[0].lastStatChanges !== undefined, 'lastStatChanges recorded on swimmer');
+const hasChanges = Object.values(playerClub.swimmers[0].lastStatChanges).some(v => v !== 0);
+assert(hasChanges, 'Swimmer has non-zero weekly stat changes recorded');
+
+// Check meet prize money
+const meetPrize = meetSummary.clubStandingsThisMeet[0].prizeMoneyEarned;
+assert(meetPrize > 0, `Xornada awarded prize money: ${meetPrize} €`);
+
+console.log('✅ Economy & Stat Changes tests passed!');
+
 console.log('\n🎉 ALL UNIT TESTS PASSED WITH 100% SUCCESS!\n');
