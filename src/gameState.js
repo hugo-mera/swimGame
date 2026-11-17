@@ -24,7 +24,8 @@ class GameState {
       isSimulating: false,
       simSpeed: 1.0,
       elapsedSeconds: 0,
-      scratchRoomOpen: false
+      scratchRoomOpen: false,
+      meetKey: null
     };
   }
 
@@ -58,10 +59,16 @@ class GameState {
     // Auto-remove after 4.5s
     setTimeout(() => {
       this.notifications = this.notifications.filter(n => n.id !== id);
-      this.triggerUIUpdate();
+      this.triggerNotificationUpdate();
     }, 4500);
 
-    this.triggerUIUpdate();
+    this.triggerNotificationUpdate();
+  }
+
+  triggerNotificationUpdate() {
+    if (typeof window !== 'undefined' && window.__refreshNotifications) {
+      window.__refreshNotifications();
+    }
   }
 
   triggerUIUpdate() {
@@ -147,6 +154,7 @@ class GameState {
             prelimEventsSwum: c.prelimEventsSwum,
             finalEventsSwum: c.finalEventsSwum,
             currentMeetEntries: c.currentMeetEntries,
+            meetEntriesSubmittedFor: c.meetEntriesSubmittedFor,
             meetReserves: c.meetReserves,
             prelimTotalPoints: c.prelimTotalPoints,
             prelimLeaguePoints: c.prelimLeaguePoints,

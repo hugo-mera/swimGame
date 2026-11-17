@@ -559,6 +559,32 @@ export const EQUIPMENT_CATALOG = [
   }
 ];
 
+const EQUIPMENT_OFFER_MONTHS = [
+  'Setembro', 'Outubro', 'Novembro', 'Decembro', 'Xaneiro',
+  'Febreiro', 'Marzo', 'Abril', 'Maio', 'Xuño'
+];
+
+export function getMonthlyEquipmentOffers(month, year = 2026) {
+  const monthIndex = EQUIPMENT_OFFER_MONTHS.indexOf(month);
+  const rotationIndex = Math.max(0, year - 2026) * EQUIPMENT_OFFER_MONTHS.length +
+    Math.max(0, monthIndex);
+  const priceTiers = [
+    EQUIPMENT_CATALOG.filter(item => item.cost <= 1800),
+    EQUIPMENT_CATALOG.filter(item => item.cost > 1800 && item.cost <= 4900),
+    EQUIPMENT_CATALOG.filter(item => item.cost > 4900 && item.cost <= 8900),
+    EQUIPMENT_CATALOG.filter(item => item.cost > 8900)
+  ];
+
+  const offers = priceTiers.map((tier, tierIndex) =>
+    tier[(rotationIndex + tierIndex) % tier.length]
+  );
+  const extraTier = priceTiers[rotationIndex % priceTiers.length];
+  const extraOffer = extraTier[(rotationIndex + 2) % extraTier.length];
+  if (!offers.includes(extraOffer)) offers.push(extraOffer);
+
+  return offers.sort((a, b) => a.cost - b.cost);
+}
+
 // Prize Money distributions (per Jornada and End of Season)
 export const PRIZE_MONEY = {
   PER_MEET_BY_DIVISION: {
@@ -631,7 +657,7 @@ export const DIFFICULTY_PRESETS = {
     statDecayMultiplier: 0.4,
     fatigueAccumulationMultiplier: 0.75,
     fatigueRecoveryMultiplier: 1.35,
-    aiOptimizationLevel: 0.7,
+    aiOptimizationLevel: 0.62,
     prizeMoneyMultiplier: 1.3,
     marketCostMultiplier: 0.85
   },
@@ -645,7 +671,7 @@ export const DIFFICULTY_PRESETS = {
     statDecayMultiplier: 1.0,
     fatigueAccumulationMultiplier: 1.0,
     fatigueRecoveryMultiplier: 1.0,
-    aiOptimizationLevel: 0.93,
+    aiOptimizationLevel: 0.8,
     prizeMoneyMultiplier: 1.0,
     marketCostMultiplier: 1.0
   },
@@ -659,7 +685,7 @@ export const DIFFICULTY_PRESETS = {
     statDecayMultiplier: 1.35,
     fatigueAccumulationMultiplier: 1.25,
     fatigueRecoveryMultiplier: 0.85,
-    aiOptimizationLevel: 0.98,
+    aiOptimizationLevel: 0.96,
     prizeMoneyMultiplier: 0.85,
     marketCostMultiplier: 1.2
   }

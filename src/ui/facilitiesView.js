@@ -1,10 +1,12 @@
 // Facilities & Equipment UI View - Club Upgrades & Training Gear
 import { gameState } from '../gameState.js';
-import { EQUIPMENT_CATALOG, AVAILABLE_SPONSORS } from '../constants.js';
+import { getMonthlyEquipmentOffers, AVAILABLE_SPONSORS } from '../constants.js';
 
 export function renderFacilities() {
   const { leagueEngine } = gameState;
   const club = leagueEngine.playerClub;
+  const currentMonth = leagueEngine.getCurrentScheduleEvent().month;
+  const monthlyOffers = getMonthlyEquipmentOffers(currentMonth, leagueEngine.currentSeasonYear);
 
   const trainingBonus = Math.round(club.getEquipmentTrainingBonus() * 100);
   const recoveryBonus = Math.round(club.getEquipmentRecoveryBonus() * 100);
@@ -106,11 +108,11 @@ export function renderFacilities() {
           <h3 class="text-lg font-bold text-white flex items-center gap-2">
             <span>📦</span> Catálogo de Material & Instalacións
           </h3>
-          <p class="text-xs text-slate-400">Bonificacións acumulables de rendemento para o adestramento e competición</p>
+          <p class="text-xs text-slate-400">Ofertas de ${currentMonth}: 5 melloras con prezos variados. O catálogo renóvase ao cambiar de mes.</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          ${EQUIPMENT_CATALOG.map(item => {
+          ${monthlyOffers.map(item => {
             const isOwned = club.hasEquipment(item.id);
             const canAfford = club.funds >= item.cost;
 

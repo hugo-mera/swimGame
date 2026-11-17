@@ -6,9 +6,10 @@ import { renderTraining, setupTrainingEvents } from './ui/trainingView.js';
 import { renderMarket, setupMarketEvents } from './ui/marketView.js';
 import { renderFacilities, setupFacilitiesEvents } from './ui/facilitiesView.js';
 import { renderStandings, setupStandingsEvents } from './ui/standingsView.js';
-import { renderMeet, setupMeetEvents } from './ui/meetView.js';
+import { renderMeet, setupMeetEvents, stopMeetAnimation } from './ui/meetView.js';
 import { renderNewGameModal, setupNewGameEvents } from './ui/newGameModal.js';
 import { soundManager } from './audio/soundFx.js';
+import { getMeetRegistrationKey } from './engine/league.js';
 
 function initApp() {
   // Check if save exists in localStorage
@@ -16,14 +17,16 @@ function initApp() {
 
   // Expose UI refresher
   window.__refreshGameUI = renderApp;
+  window.__refreshNotifications = renderNotifications;
 
   // Initial render
   renderApp();
 }
 
-function renderApp() {
+function renderApp(animateTabContent = false) {
   const root = document.getElementById('app');
   if (!root) return;
+  stopMeetAnimation();
 
   // If game not started yet, render New Game Modal
   if (!gameState.isGameStarted) {
@@ -99,23 +102,62 @@ function renderApp() {
 
       <!-- Main Body Container -->
       <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        ${renderActiveTabContent()}
+        <div class="${animateTabContent ? 'animate-in' : ''}">
+          ${renderActiveTabContent()}
+        </div>
       </main>
 
       <!-- Toast Container -->
       <div id="toast-container">
-        ${gameState.notifications.map(n => `
-          <div class="toast toast-${n.type}">
-            <span>${n.type === 'success' ? '✅' : n.type === 'error' ? '❌' : 'ℹ️'}</span>
-            <span>${n.message}</span>
-          </div>
-        `).join('')}
+        ${renderToastNotifications()}
       </div>
     </div>
   `;
 
   // Attach event handlers
   setupMainEvents(root);
+}
+
+function renderToastNotifications() {
+  return gameState.notifications.map(n => `
+    <div class="toast toast-${n.type}" data-notification-id="${n.id}">
+      <span>${n.type === 'success' ? '✅' : n.type === 'error' ? '❌' : 'ℹ️'}</span>
+      <span>${n.message}</span>
+    </div>
+  `).join('');
+}
+
+function renderNotifications() {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const existing = new Map(
+    [...container.querySelectorAll('.toast')].map(toast => [
+      toast.dataset.notificationId,
+      toast
+    ])
+  );
+  const activeIds = new Set();
+
+  gameState.notifications.forEach(notification => {
+    const id = String(notification.id);
+    activeIds.add(id);
+    if (existing.has(id)) {
+      existing.delete(id);
+      return;
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${notification.type}`;
+    toast.dataset.notificationId = id;
+    toast.innerHTML = `
+      <span>${notification.type === 'success' ? '✅' : notification.type === 'error' ? '❌' : 'ℹ️'}</span>
+      <span>${notification.message}</span>
+    `;
+    container.appendChild(toast);
+  });
+
+  existing.forEach(toast => toast.remove());
 }
 
 function renderNavTab(tabId, label, activeTab, isHighlight = false) {
@@ -153,7 +195,7 @@ function setupMainEvents(root) {
   root.querySelectorAll('.nav-tab-btn').forEach(btn => {
     btn.onclick = () => {
       gameState.activeTab = btn.getAttribute('data-tab');
-      renderApp();
+      renderApp(true);
     };
   });
 
@@ -196,6 +238,14 @@ function setupMainEvents(root) {
     advanceBtn.onclick = () => {
       const currentEv = gameState.leagueEngine.getCurrentScheduleEvent();
       const isRaceWeek = currentEv.type === 'meet' || currentEv.type === 'final_meet';
+      const registrationKey = getMeetRegistrationKey(currentEv, gameState.leagueEngine.phase);
+      if (currentEv.type === 'roster_deadline' &&
+          gameState.leagueEngine.playerClub.meetEntriesSubmittedFor !== registrationKey) {
+        gameState.notify('Debes validar e pechar a inscrición esta semana antes de avanzar.', 'error');
+        gameState.activeTab = 'meet';
+        renderApp();
+        return;
+      }
       if (isRaceWeek) {
         gameState.notify('¡É semana de competición oficial! Debes disputar as carreiras na pestana de Competición.', 'error');
         gameState.activeTab = 'meet';

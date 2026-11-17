@@ -69,6 +69,7 @@ export class Club {
 
     // Current Meet Entries: eventId -> array of swimmerIds (or relay team objects)
     this.currentMeetEntries = data.currentMeetEntries || {};
+    this.meetEntriesSubmittedFor = data.meetEntriesSubmittedFor || null;
     // Reserves registered for the meet (Circular Page 2 section 3.8 - up to 10 reserves)
     this.meetReserves = data.meetReserves || [];
 

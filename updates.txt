@@ -1,0 +1,11 @@
+UPDATES TO DO:
+
+- Incluír a posibilidade de lesións: que haxa un factor, con un porcentaxe de
+probabilidade (non se debe amosar) que sea baixo se a fatiga é baixa e que 
+incremente conforme incrementa a fatiga pero que, no peor dos casos sexa do 
+15%. Así mesmo, incluír algunha mellora que permita reducir a probabilidade de
+lesións.
+
+- Incluir a posibilidade de que, durante o mercado, outros clubs poidan fichar
+algún nadador do teu equipo, pero que se poida contrarestar subindo o sueldo.
+

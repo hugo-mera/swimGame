@@ -88,7 +88,8 @@ export class PoolRenderer {
       return;
     }
 
-    const numLanes = Math.max(6, liveResults.length);
+    const orderedResults = [...liveResults].sort((a, b) => a.lane - b.lane);
+    const numLanes = Math.max(6, orderedResults.length);
     const poolMarginLeft = 140; // Space for lane badges & names
     const poolMarginRight = 35;
     const poolMarginTop = 50;
@@ -111,7 +112,7 @@ export class PoolRenderer {
     this.drawTouchpads(poolMarginLeft, poolMarginTop, poolWidth, numLanes, laneHeight);
 
     // 5. Draw Swimmers
-    liveResults.forEach((swimmerState, idx) => {
+    orderedResults.forEach((swimmerState, idx) => {
       const laneIndex = idx;
       const laneY = poolMarginTop + laneIndex * laneHeight + laneHeight / 2;
 

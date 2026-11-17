@@ -75,11 +75,8 @@ export class AICoach {
       // Check if swimmer has already swum 2 individual events in this meet
       if (swimmerMeetEventCount[swimmerId] >= PARTICIPATION_LIMITS.MAX_INDIVIDUAL_PER_SESSION) continue;
 
-      // Sub-optimal randomness check for lower difficulty levels
-      if (Math.random() > optimizationLevel && Math.random() < 0.25) {
-        // Occasionally skip the #1 choice on easier difficulties to simulate human coaching imperfection
-        continue;
-      }
+      // Lower optimization levels make the AI more likely to miss its best event assignments.
+      if (Math.random() > optimizationLevel) continue;
 
       // Check adjacent events fatigue penalty (if swimmer swims consecutive events)
       // If AI has someone almost as good, prefer avoiding consecutive races

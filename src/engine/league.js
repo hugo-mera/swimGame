@@ -16,6 +16,11 @@ import { Swimmer } from '../models/Swimmer.js';
 import { AICoach } from './ai.js';
 import { RaceSimulation } from './simulation.js';
 
+export function getMeetRegistrationKey(scheduleEvent, phase) {
+  const meetKey = scheduleEvent.meetKey || (scheduleEvent.type === 'final_meet' ? 'FASE_FINAL' : null);
+  return meetKey ? `${phase}:${meetKey}` : null;
+}
+
 export class LeagueEngine {
   constructor(difficultyConfig) {
     this.difficulty = difficultyConfig;
@@ -239,7 +244,7 @@ export class LeagueEngine {
     this.processWeeklyFinances();
 
     // 3. Weekly market refresh (small random chance of new scouted swimmers)
-    if (Math.random() < 0.45) {
+    if (this.isMarketOpen() && Math.random() < 0.45) {
       this.refreshMarket();
     }
 
@@ -321,6 +326,8 @@ export class LeagueEngine {
    * Refreshes the swimmer transfer market
    */
   refreshMarket() {
+    if (!this.isMarketOpen()) return false;
+
     const firstNamesM = ['Marcos', 'Manuel', 'Brais', 'Samuel', 'Mateo', 'Alexandre', 'Martín', 'Gabriel', 'Xurxo', 'Adrián'];
     const firstNamesF = ['Noa', 'Uxia', 'Candela', 'Sabela', 'Lara', 'Alba', 'Antía', 'Carla', 'Sara', 'Laura'];
     const lastNames = ['Souto', 'Carballo', 'Rey', 'Paz', 'Guitián', 'Taboada', 'Novoa', 'Bermúdez', 'Barros', 'Ramos', 'Calvo', 'Fontán'];
@@ -367,13 +374,21 @@ export class LeagueEngine {
     }
 
     this.marketSwimmers = newMarket;
+    return true;
+  }
+
+  isMarketOpen() {
+    return this.getCurrentScheduleEvent().month === 'Setembro';
   }
 
   /**
    * Generates AI line-ups for all AI clubs for an upcoming meet
    */
-  prepareAIMeetEntries(meetProgram, isFinalPhase = false) {
-    Object.values(this.divisions).forEach(clubs => {
+  prepareAIMeetEntries(meetProgram, isFinalPhase = false, divisionName = null) {
+    const divisions = divisionName
+      ? [[divisionName, this.divisions[divisionName] || []]]
+      : Object.entries(this.divisions);
+    divisions.forEach(([, clubs]) => {
       clubs.forEach(club => {
         if (!club.isPlayer) {
           const { entries, reserves } = AICoach.generateMeetRoster(
@@ -473,6 +488,23 @@ export class LeagueEngine {
       eventResults: meetResults,
       clubStandingsThisMeet: xornadaClubScores
     };
+  }
+
+  simulateOtherDivisionMeets(completedDivisionName, meetProgram, isFinalPhase = false) {
+    const results = {};
+
+    Object.keys(this.divisions).forEach(divisionName => {
+      if (divisionName === completedDivisionName) return;
+
+      this.prepareAIMeetEntries(meetProgram, isFinalPhase, divisionName);
+      results[divisionName] = this.simulateDivisionMeet(
+        divisionName,
+        meetProgram,
+        isFinalPhase
+      );
+    });
+
+    return results;
   }
 
   /**

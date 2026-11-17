@@ -1,5 +1,5 @@
 // Comprehensive Automated Unit Test for Swim Game Engine
-import { DIVISIONS, MEET_PROGRAMS, DIFFICULTY_PRESETS, PERIODIZATION_PHASES } from './src/constants.js';
+import { DIVISIONS, MEET_PROGRAMS, DIFFICULTY_PRESETS, PERIODIZATION_PHASES, getMonthlyEquipmentOffers } from './src/constants.js';
 import { Swimmer } from './src/models/Swimmer.js';
 import { Club } from './src/models/Club.js';
 import { AICoach } from './src/engine/ai.js';
@@ -118,6 +118,14 @@ Object.entries(rosterResult.entries).forEach(([evId, enteredIds]) => {
 
 assert(!violationFound, 'AI Coach strictly adhered to all FEGAN Circular 26-14 rules!');
 
+const septemberOffers = getMonthlyEquipmentOffers('Setembro');
+const octoberOffers = getMonthlyEquipmentOffers('Outubro');
+assert(septemberOffers.length >= 4 && septemberOffers.length <= 5, 'Monthly equipment pool has 4-5 offers');
+assert(new Set(septemberOffers.map(item => item.id)).size === septemberOffers.length, 'Monthly equipment offers are unique');
+assert(Math.min(...septemberOffers.map(item => item.cost)) < 2000 &&
+  Math.max(...septemberOffers.map(item => item.cost)) > 8000, 'Monthly equipment offers include varied price tiers');
+assert(septemberOffers.map(item => item.id).join() !== octoberOffers.map(item => item.id).join(), 'Equipment offers change between months');
+
 // 4. Race Simulation Tests
 playerClub.currentMeetEntries = rosterResult.entries;
 engine.prepareAIMeetEntries(MEET_PROGRAMS.XORNADA_A, false);
@@ -139,6 +147,16 @@ console.log('\nSimulating Full Division Meet (Jornada A)...');
 const meetSummary = engine.simulateDivisionMeet(DIVISIONS.DIV3, MEET_PROGRAMS.XORNADA_A, false);
 assert(meetSummary.clubStandingsThisMeet.length === div3Clubs.length, 'All clubs ranked in Jornada');
 assert(meetSummary.clubStandingsThisMeet[0].xornadaPointsEarned > 0, `Xornada winner earned rank points: ${meetSummary.clubStandingsThisMeet[0].xornadaPointsEarned}`);
+
+const otherDivisionResults = engine.simulateOtherDivisionMeets(
+  DIVISIONS.DIV3,
+  MEET_PROGRAMS.XORNADA_A,
+  false
+);
+assert(Object.keys(otherDivisionResults).length === 3, 'Other divisions simulate when a jornada is completed');
+assert(Object.values(otherDivisionResults).every(result =>
+  result.clubStandingsThisMeet.length === engine.divisions[result.divisionName].length
+), 'Other division standings are updated for every club');
 
 // Test Weekly Advance & Periodization
 console.log('\nTesting Weekly Periodization Progression...');

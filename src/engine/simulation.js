@@ -115,6 +115,7 @@ export class RaceSimulation {
           isRelay: true,
           swimmers: entry.swimmers,
           relayName: `${entry.club.name} Relevo`,
+          lane: idx + 1,
           finalTime: Math.round(totalRelayTime * 100) / 100,
           legSplits
         };
@@ -140,6 +141,7 @@ export class RaceSimulation {
           isRelay: false,
           swimmer,
           swimmerName: swimmer.fullName,
+          lane: idx + 1,
           finalTime,
           isPB
         };
@@ -149,11 +151,9 @@ export class RaceSimulation {
     // 3. Sort by finalTime ascending (fastest first)
     results.sort((a, b) => a.finalTime - b.finalTime);
 
-    // 4. Assign lanes (fastest swimmers in middle lanes 3, 4, then 2, 5, 1, 6...)
-    const lanePattern = [4, 3, 5, 2, 6, 1, 7, 8];
+    // Keep lanes in deterministic club/entry order; final ranking is shown separately.
     results.forEach((res, rankIdx) => {
       res.rank = rankIdx + 1;
-      res.lane = lanePattern[rankIdx % lanePattern.length] || (rankIdx + 1);
     });
 
     // 5. Calculate Points according to Circular 26-14 rules

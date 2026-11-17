@@ -6,6 +6,7 @@ import { AICoach } from '../engine/ai.js';
 import { RaceSimulation } from '../engine/simulation.js';
 import { PoolRenderer } from '../graphics/poolCanvas.js';
 import { soundManager } from '../audio/soundFx.js';
+import { getMeetRegistrationKey } from '../engine/league.js';
 
 let poolRenderer = null;
 let animFrameId = null;
@@ -16,6 +17,8 @@ export function renderMeet() {
   const { leagueEngine } = gameState;
   const club = leagueEngine.playerClub;
   const scheduleEvent = leagueEngine.getCurrentScheduleEvent();
+  const registrationKey = getMeetRegistrationKey(scheduleEvent, leagueEngine.phase);
+  const registrationSubmitted = club.meetEntriesSubmittedFor === registrationKey;
 
   // Determine current meet program
   if (scheduleEvent.program) {
@@ -31,18 +34,25 @@ export function renderMeet() {
   }
 
   const isMeetWeek = scheduleEvent.type === 'meet' || scheduleEvent.type === 'final_meet';
-  const isRosterWeek = scheduleEvent.type === 'roster_deadline' || isMeetWeek;
+  if (scheduleEvent.type === 'roster_deadline') {
+    return registrationSubmitted
+      ? renderRegistrationClosedView(scheduleEvent)
+      : renderRosterSelectionView(club, scheduleEvent, true);
+  }
+  if (isMeetWeek && !registrationSubmitted) {
+    return renderMissedRegistrationView(scheduleEvent);
+  }
+  const isActiveMeet = gameState.activeMeet.meetKey === registrationKey;
 
-  if (meetPhaseState === 'RACING') {
+  if (isMeetWeek && isActiveMeet && meetPhaseState === 'RACING') {
     return renderLiveRaceView(scheduleEvent);
-  } else if (meetPhaseState === 'SCRATCH_ROOM') {
-    return renderScratchRoomView(club, scheduleEvent);
-  } else if (meetPhaseState === 'MEET_FINISHED') {
+  } else if (isMeetWeek && isActiveMeet && meetPhaseState === 'MEET_FINISHED') {
     return renderMeetFinishedSummaryView(scheduleEvent);
+  } else if (isMeetWeek) {
+    return renderScratchRoomView(club, scheduleEvent);
   }
 
-  // Default: Stage 1 Roster Selection
-  return renderRosterSelectionView(club, scheduleEvent, isRosterWeek);
+  return renderRosterSelectionView(club, scheduleEvent, false);
 }
 
 /**
@@ -167,6 +177,29 @@ function renderRosterSelectionView(club, scheduleEvent, isRosterWeek) {
         </div>
       </div>
     </div>
+  `;
+}
+
+function renderRegistrationClosedView(scheduleEvent) {
+  return `
+    <section class="glass-card registration-status">
+      <span class="registration-status-icon" aria-hidden="true">✅</span>
+      <p class="eyebrow">Inscrición pechada</p>
+      <h2>${scheduleEvent.name}</h2>
+      <p>A convocatoria quedou enviada e bloqueada. Xa podes avanzar á semana da competición; alí poderás revisar a cámara de chamadas.</p>
+      <button id="btn-back-dashboard" class="btn btn-primary">Volver ao panel</button>
+    </section>
+  `;
+}
+
+function renderMissedRegistrationView(scheduleEvent) {
+  return `
+    <section class="glass-card registration-status">
+      <span class="registration-status-icon" aria-hidden="true">⚠️</span>
+      <p class="eyebrow">Inscrición non pechada</p>
+      <h2>${scheduleEvent.name}</h2>
+      <p>Non consta unha convocatoria validada a semana anterior. Non se pode iniciar esta competición sen unha inscrición pechada.</p>
+    </section>
   `;
 }
 
@@ -548,6 +581,29 @@ function renderLiveRaceView(scheduleEvent) {
           </table>
         </div>
       </div>
+
+      <div class="glass-card rounded-2xl overflow-hidden border border-slate-700/60">
+        <div class="p-3 border-b border-slate-800 flex items-center justify-between">
+          <h4 class="font-bold text-white text-sm flex items-center gap-2">
+            <span>🏆</span> Puntos por equipo nesta xornada
+          </h4>
+          <span id="meet-points-progress" class="text-xs text-slate-400"></span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="bg-slate-900/90 text-slate-400 border-b border-slate-800 uppercase font-semibold">
+                <th class="py-2.5 px-3">Posto</th>
+                <th class="py-2.5 px-3">Club</th>
+                <th class="py-2.5 px-3 text-right text-cyan-300">Puntos FEGAN</th>
+              </tr>
+            </thead>
+            <tbody id="meet-points-tbody" class="divide-y divide-slate-800/60 font-mono">
+              ${renderMeetPointsRows()}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -608,10 +664,22 @@ function renderMeetFinishedSummaryView(scheduleEvent) {
 export function setupMeetEvents(container) {
   const { leagueEngine, activeMeet } = gameState;
   const club = leagueEngine.playerClub;
+  const scheduleEvent = leagueEngine.getCurrentScheduleEvent();
+  const registrationKey = getMeetRegistrationKey(scheduleEvent, leagueEngine.phase);
+  const canEditRoster = scheduleEvent.type === 'roster_deadline' &&
+    club.meetEntriesSubmittedFor !== registrationKey;
+
+  const backDashboardBtn = container.querySelector('#btn-back-dashboard');
+  if (backDashboardBtn) {
+    backDashboardBtn.onclick = () => {
+      gameState.activeTab = 'dashboard';
+      gameState.triggerUIUpdate();
+    };
+  }
 
   // Auto-Fill with AI Coach
   const autoFillBtn = container.querySelector('#btn-auto-fill-roster');
-  if (autoFillBtn) {
+  if (autoFillBtn && canEditRoster) {
     autoFillBtn.onclick = () => {
       const isFinalPhase = leagueEngine.phase === 'final_phase';
       const divClubs = leagueEngine.divisions[club.division] || [];
@@ -630,7 +698,7 @@ export function setupMeetEvents(container) {
   }
 
   // Individual swimmer selection
-  container.querySelectorAll('.select-event-swimmer').forEach(sel => {
+  if (canEditRoster) container.querySelectorAll('.select-event-swimmer').forEach(sel => {
     sel.onchange = (e) => {
       const eventId = sel.getAttribute('data-event-id');
       const slot = parseInt(sel.getAttribute('data-slot'));
@@ -663,7 +731,7 @@ export function setupMeetEvents(container) {
   });
 
   // Relay swimmer selection
-  container.querySelectorAll('.select-relay-swimmer').forEach(sel => {
+  if (canEditRoster) container.querySelectorAll('.select-relay-swimmer').forEach(sel => {
     sel.onchange = (e) => {
       const eventId = sel.getAttribute('data-event-id');
       const leg = parseInt(sel.getAttribute('data-leg'));
@@ -690,7 +758,7 @@ export function setupMeetEvents(container) {
   });
 
   // Reserve selection
-  container.querySelectorAll('.select-reserve-swimmer').forEach(sel => {
+  if (canEditRoster) container.querySelectorAll('.select-reserve-swimmer').forEach(sel => {
     sel.onchange = (e) => {
       const slot = parseInt(sel.getAttribute('data-slot'));
       const swimmerId = e.target.value;
@@ -713,7 +781,7 @@ export function setupMeetEvents(container) {
 
   // Confirm Entries & Go to Scratch Room
   const confirmBtn = container.querySelector('#btn-confirm-entries');
-  if (confirmBtn) {
+  if (confirmBtn && canEditRoster) {
     confirmBtn.onclick = () => {
       // Validate that no relay contains duplicate swimmers
       for (const ev of currentProgram) {
@@ -740,8 +808,9 @@ export function setupMeetEvents(container) {
       const isFinalPhase = leagueEngine.phase === 'final_phase';
       leagueEngine.prepareAIMeetEntries(currentProgram, isFinalPhase);
 
-      meetPhaseState = 'SCRATCH_ROOM';
+      club.meetEntriesSubmittedFor = registrationKey;
       gameState.notify('Inscrición rexistrada na Federación Galega de Natación!', 'success');
+      gameState.saveToLocalStorage();
       gameState.triggerUIUpdate();
     };
   }
@@ -761,10 +830,39 @@ export function setupMeetEvents(container) {
     finishReturnBtn.onclick = () => {
       meetPhaseState = 'ROSTER_SELECTION';
       gameState.activeTab = 'dashboard';
+      club.clearMeetEntries();
+      club.meetEntriesSubmittedFor = null;
+      gameState.activeMeet = {
+        inProgress: false,
+        divisionName: null,
+        meetProgram: null,
+        isFinalPhase: false,
+        currentEventIdx: 0,
+        currentEventResults: null,
+        meetHistory: [],
+        isSimulating: false,
+        simSpeed: 1,
+        elapsedSeconds: 0,
+        scratchRoomOpen: false,
+        meetKey: null
+      };
       gameState.leagueEngine.advanceWeek();
       gameState.saveToLocalStorage();
       gameState.triggerUIUpdate();
     };
+  }
+
+  if (meetPhaseState === 'RACING' &&
+      gameState.activeMeet.meetKey === registrationKey &&
+      gameState.activeMeet.currentEventResults) {
+    setupRaceCanvasAndLoop(container, false);
+  }
+}
+
+export function stopMeetAnimation() {
+  if (animFrameId) {
+    cancelAnimationFrame(animFrameId);
+    animFrameId = null;
   }
 }
 
@@ -785,6 +883,7 @@ function startMeetSimulation(container) {
   activeMeet.simSpeed = 1.0;
   activeMeet.elapsedSeconds = 0;
   activeMeet.divisionName = club.division;
+  activeMeet.meetKey = getMeetRegistrationKey(leagueEngine.getCurrentScheduleEvent(), leagueEngine.phase);
   activeMeet.meetHistory = [];
 
   // Reset day-of-meet fatigue for all participating clubs
@@ -799,7 +898,8 @@ function startMeetSimulation(container) {
   }, 50);
 }
 
-function setupRaceCanvasAndLoop(container) {
+function setupRaceCanvasAndLoop(container, simulateCurrentEvent = true) {
+  stopMeetAnimation();
   const canvas = document.getElementById('pool-canvas');
   if (!canvas) return;
 
@@ -829,7 +929,7 @@ function setupRaceCanvasAndLoop(container) {
   }
   const nextBtn = document.getElementById('btn-next-event');
   if (nextBtn) {
-    nextBtn.disabled = true;
+    nextBtn.disabled = simulateCurrentEvent || !activeMeet.currentEventFinished;
   }
   // Clear previous event results from the live table
   const tbody = document.getElementById('live-results-tbody');
@@ -838,28 +938,48 @@ function setupRaceCanvasAndLoop(container) {
   }
 
   // Simulate this event
-  const eventSimulation = RaceSimulation.simulateEvent({
-    event: currentEvent,
-    division: activeMeet.divisionName,
-    clubs,
-    isFinalPhase: activeMeet.isFinalPhase,
-    eventIndex: activeMeet.currentEventIdx
-  });
+  let eventSimulation;
+  if (simulateCurrentEvent) {
+    eventSimulation = RaceSimulation.simulateEvent({
+      event: currentEvent,
+      division: activeMeet.divisionName,
+      clubs,
+      isFinalPhase: activeMeet.isFinalPhase,
+      eventIndex: activeMeet.currentEventIdx
+    });
 
-  if (!activeMeet.meetHistory) activeMeet.meetHistory = [];
-  activeMeet.meetHistory[activeMeet.currentEventIdx] = eventSimulation;
+    if (!activeMeet.meetHistory) activeMeet.meetHistory = [];
+    activeMeet.meetHistory[activeMeet.currentEventIdx] = eventSimulation;
+    activeMeet.currentEventResults = eventSimulation.results;
+    activeMeet.currentEventFinished = false;
+    activeMeet.elapsedSeconds = 0;
 
-  activeMeet.currentEventResults = eventSimulation.results;
-  activeMeet.currentEventFinished = false;
-  activeMeet.elapsedSeconds = 0;
+    poolRenderer.reset();
 
-  poolRenderer.reset();
-
-  // Audio start sequence: Whistle then Buzzer!
-  soundManager.playWhistle(true);
-  setTimeout(() => {
-    soundManager.playStartBuzzer();
-  }, 1200);
+    soundManager.playWhistle(true);
+    setTimeout(() => {
+      soundManager.playStartBuzzer();
+    }, 1200);
+  } else {
+    eventSimulation = {
+      event: currentEvent,
+      results: activeMeet.currentEventResults
+    };
+    if (activeMeet.currentEventFinished) {
+      updateResultsTable(activeMeet.currentEventResults);
+    }
+    const liveResults = RaceSimulation.getLiveStateAtTime(
+      activeMeet.currentEventResults,
+      currentEvent,
+      activeMeet.elapsedSeconds
+    );
+    poolRenderer.render({
+      event: currentEvent,
+      liveResults,
+      elapsedSeconds: activeMeet.elapsedSeconds,
+      allFinished: activeMeet.currentEventFinished
+    });
+  }
 
   // Setup simulation controls
   setupSimulationControls(container, eventSimulation);
@@ -901,7 +1021,6 @@ function setupRaceCanvasAndLoop(container) {
     }
   }
 
-  if (animFrameId) cancelAnimationFrame(animFrameId);
   animFrameId = requestAnimationFrame(loop);
 }
 
@@ -967,6 +1086,7 @@ function setupSimulationControls(container, eventSimulation) {
 }
 
 function updateResultsTable(results) {
+  updateMeetPointsTable();
   const tbody = document.getElementById('live-results-tbody');
   if (!tbody) return;
 
@@ -988,6 +1108,57 @@ function updateResultsTable(results) {
   `).join('');
 }
 
+function getCompletedMeetEventCount(activeMeet) {
+  return Math.min(
+    activeMeet.meetProgram?.length || 0,
+    activeMeet.currentEventIdx + (activeMeet.currentEventFinished ? 1 : 0)
+  );
+}
+
+function renderMeetPointsRows() {
+  const { activeMeet, leagueEngine } = gameState;
+  const clubs = leagueEngine.divisions[activeMeet.divisionName] || [];
+  const completedEvents = getCompletedMeetEventCount(activeMeet);
+  const pointsByClub = new Map(clubs.map(club => [club.id, 0]));
+
+  (activeMeet.meetHistory || []).slice(0, completedEvents).forEach(eventResult => {
+    (eventResult?.results || []).forEach(result => {
+      pointsByClub.set(
+        result.club.id,
+        (pointsByClub.get(result.club.id) || 0) + result.points
+      );
+    });
+  });
+
+  return [...clubs]
+    .sort((a, b) =>
+      (pointsByClub.get(b.id) - pointsByClub.get(a.id)) ||
+      a.name.localeCompare(b.name)
+    )
+    .map((club, index) => `
+      <tr class="${club.isPlayer ? 'bg-cyan-950/40 text-cyan-200 font-bold' : 'text-slate-300'}">
+        <td class="py-2.5 px-3">#${index + 1}</td>
+        <td class="py-2.5 px-3 font-sans">
+          <span class="inline-block w-2.5 h-2.5 rounded-full mr-1.5" style="background-color: ${club.primaryColor};"></span>
+          ${club.name}${club.isPlayer ? ' · Ti' : ''}
+        </td>
+        <td class="py-2.5 px-3 text-right font-bold text-cyan-300">${pointsByClub.get(club.id)}</td>
+      </tr>
+    `).join('');
+}
+
+function updateMeetPointsTable() {
+  const tbody = document.getElementById('meet-points-tbody');
+  if (tbody) tbody.innerHTML = renderMeetPointsRows();
+
+  const progress = document.getElementById('meet-points-progress');
+  if (progress) {
+    const { activeMeet } = gameState;
+    progress.textContent =
+      `${getCompletedMeetEventCount(activeMeet)} de ${activeMeet.meetProgram.length} probas completadas`;
+  }
+}
+
 function finishEntireMeet() {
   const { activeMeet, leagueEngine } = gameState;
 
@@ -1002,6 +1173,11 @@ function finishEntireMeet() {
     activeMeet.meetProgram,
     activeMeet.isFinalPhase,
     precomputed
+  );
+  leagueEngine.simulateOtherDivisionMeets(
+    activeMeet.divisionName,
+    activeMeet.meetProgram,
+    activeMeet.isFinalPhase
   );
 
   activeMeet.finalStandings = res.clubStandingsThisMeet;

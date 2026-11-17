@@ -1,0 +1,34 @@
+FIXES TO DO:
+
+- Temos que implementar o cabio de temporada, unha vez chega a última xornada
+tense que saltar á seguinte temporada, tendo en conta os ascensos/descensos dos
+clubs e preservando o nivel de forma dos nadadores. Volvendo a retomar de novo
+
+- Revisar fase final: en Div Honor, Div1 e Div2 pelexan os tres primeiros
+equipos polo ascenso e os 3 últimos equipos pola permanencia. Os resultados da
+fase preliminar non se teñen en conta para a final, só a posición para definir
+os grupos de ascneso/descenso. En División de honor, o grupo de ascenso só 
+decide o gañador. Para a div3, os tres primeiros clasificados pelexan polo 
+ascenso e do 4 ao 6 pola permanencia, se ben non hai descensos nesta division.
+O resto funciona igual, os resultados das tres xornadas preliminares sólo 
+deciden os grupos, os ascensos/descensos/etc decidense so coa puntuación da
+final.
+
+- Arreglar fase final, por algún motivo que descoñezo, a meet da faseFinal non
+está ben implenetada, non cargan nin a piscina, nin os nadadores, nin as probas
+ 
+- Axustar a dificultade de novo. A primeira xornada segue sendo moi dura para
+o equipo do usuario. Se se realiza o seguinte axuste, todas as xornadas van a
+ser duras de igual maneira, xa que, en maior ou menor medida, o resto de equipos
+van a mellorar tamen.
+
+- Facer que os nadadores dos demáis clubs tamén teñan unha mellora dos atributos
+realista e comparable á que o usuario pode facer entre xornada e xornada. Esta
+mellora ten que estar axustada ao nivel de dificultade, no nivel fácil, o user
+debe ter moito máis facil mellorar máis que na máxima dificultade. No nivel
+medio, o usuario debe mellorar máis que os rivais con relativa facilidade e no
+nivel máis complicado o usuario e os rivais deben de ter un ritmo de mellora
+similar. Estes cómputos debense facer a "cegas", é decir, sen ter en conta canto
+mellorou o usuario, simplemente calculando uns % de mellora, con posibilidade
+tamén de empeorar, e aplicando tamén fatigas pre-compe, etc. aos nadadores dos clubs
+rivais. 

@@ -9,6 +9,18 @@ export function renderMarket() {
   const { leagueEngine, difficulty } = gameState;
   const club = leagueEngine.playerClub;
 
+  if (!leagueEngine.isMarketOpen()) {
+    return `
+      <section class="market-closed glass-card">
+        <span class="market-closed-icon" aria-hidden="true">🗓️</span>
+        <p class="eyebrow">Mercado de fichaxes</p>
+        <h2>O mercado abre en setembro</h2>
+        <p>As fichaxes e a renovación de oxeadores só están dispoñibles durante o primeiro mes da tempada.</p>
+        <span class="badge badge-warning">Pechado · ${leagueEngine.getCurrentScheduleEvent().month}</span>
+      </section>
+    `;
+  }
+
   let pool = [...leagueEngine.marketSwimmers];
   if (marketFilterGender !== 'ALL') {
     pool = pool.filter(s => s.gender === marketFilterGender);
@@ -174,6 +186,11 @@ export function setupMarketEvents(container) {
   const refreshBtn = container.querySelector('#btn-refresh-market-now');
   if (refreshBtn) {
     refreshBtn.onclick = () => {
+      if (!gameState.leagueEngine.isMarketOpen()) {
+        gameState.notify('O mercado só está aberto durante setembro.', 'error');
+        gameState.triggerUIUpdate();
+        return;
+      }
       gameState.leagueEngine.refreshMarket();
       gameState.notify('Oxeadores actualizaron a lista de novos talentos dispoñibles!', 'info');
       gameState.triggerUIUpdate();
@@ -187,6 +204,11 @@ export function setupMarketEvents(container) {
       const swimmer = gameState.leagueEngine.marketSwimmers.find(s => s.id === swimmerId);
       const club = gameState.leagueEngine.playerClub;
       if (!swimmer) return;
+      if (!gameState.leagueEngine.isMarketOpen()) {
+        gameState.notify('O mercado só está aberto durante setembro.', 'error');
+        gameState.triggerUIUpdate();
+        return;
+      }
 
       const cost = swimmer.calculateMarketValue(gameState.difficulty.marketCostMultiplier);
       if (club.funds < cost) {
