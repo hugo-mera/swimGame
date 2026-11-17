@@ -331,7 +331,7 @@ export const PERIODIZATION_PHASES = {
   }
 };
 
-// Equipment & Facilities upgrades available in the store
+// Equipment & Facilities upgrades available in the store (Rotating Monthly Pool)
 export const EQUIPMENT_CATALOG = [
   {
     id: 'pull_kick',
@@ -344,6 +344,16 @@ export const EQUIPMENT_CATALOG = [
     description: 'Mellora un 6% o aproveitamento do adestramento xeral de estilos e técnica.'
   },
   {
+    id: 'finger_paddles',
+    name: 'Palas de Dedo & Manoplas Hidrodinámicas',
+    subtitle: 'Sensibilidade de agarre e orientación de palmas',
+    category: 'Material',
+    cost: 650,
+    trainingBonus: 0.08,
+    icon: '🧤',
+    description: 'Perfecciona a fase de agarre e tracción en crol, braza e bolboreta (+8% técnica).'
+  },
+  {
     id: 'fins_snorkels',
     name: 'Set de Aletas & Tubos Frontais',
     subtitle: 'Aletas curtas de silicona e tubos centrais',
@@ -354,9 +364,29 @@ export const EQUIPMENT_CATALOG = [
     description: 'Aumenta un 10% a ganancia en velocidade de pés e posición hidrodinámica.'
   },
   {
+    id: 'tempo_trainers',
+    name: 'Metrónomos Subacuáticos (Finis Tempo)',
+    subtitle: 'Cadencia auditiva intra-gorro para ritmo de brazada',
+    category: 'Tecnoloxía',
+    cost: 1450,
+    trainingBonus: 0.11,
+    icon: '⏲️',
+    description: 'Optimiza a frecuencia de ciclo e a regularidade de pase en series longas (+11% eficiencia).'
+  },
+  {
+    id: 'parachute_swim',
+    name: 'Paracaídas de Arraste & Cinto de Lastre',
+    subtitle: 'Sobrecarga fluída progresiva en auga',
+    category: 'Material',
+    cost: 1800,
+    trainingBonus: 0.13,
+    icon: '🪂',
+    description: 'Desenvolvemento de potencia muscular específica sen alterar a mecánica de brazada (+13%).'
+  },
+  {
     id: 'resistance_cords',
-    name: 'Gomas de Resistencia & Paracaídas',
-    subtitle: 'Sistemas elásticos de sobrecarga e power-towers',
+    name: 'Gomas de Resistencia & Power Towers',
+    subtitle: 'Sistemas elásticos de sobrecarga asistida e resistida',
     category: 'Equipamento',
     cost: 2400,
     trainingBonus: 0.15,
@@ -364,44 +394,168 @@ export const EQUIPMENT_CATALOG = [
     description: 'Aumenta un 15% o desenvolvemento de velocidade punta e potencia anaeróbica.'
   },
   {
+    id: 'monofin_drills',
+    name: 'Monofíns de Fibra & Táboas de Ondulación',
+    subtitle: 'Especialización en patada subacuática de golfiño',
+    category: 'Material',
+    cost: 2900,
+    trainingBonus: 0.16,
+    icon: '🐬',
+    description: 'Perfecciona as saídas e viraxes subacuáticas (+16% ganancia de velocidade nas paredes).'
+  },
+  {
+    id: 'smart_goggles',
+    name: 'Sb-Goggles Biométricas con Head-Up Display',
+    subtitle: 'Telemetría de tempos parciais en tempo real nos cristais',
+    category: 'Tecnoloxía',
+    cost: 3500,
+    trainingBonus: 0.17,
+    icon: '🥽',
+    description: 'Permite aos nadadores autorregular o ritmo de serie con precisión milimétrica (+17%).'
+  },
+  {
+    id: 'sports_nutritionist',
+    name: 'Nutricionista Deportivo Especializado',
+    subtitle: 'Pautas de suplementación intra-adestramento e recarga de glicóxeno',
+    category: 'Persoal',
+    cost: 3800,
+    fatigueRecoveryBonus: 0.25,
+    icon: '🥗',
+    description: 'Acelera a recuperación muscular semanal nun 25% e mellora o rendemento sostenido.'
+  },
+  {
+    id: 'dryland_bench',
+    name: 'Bancos Isocinéticos de Natación (Vasa Trainer)',
+    subtitle: 'Simuladores ergonómicos de tracción en seco',
+    category: 'Instalacións',
+    cost: 4200,
+    trainingBonus: 0.18,
+    icon: '📐',
+    description: 'Desenvolvemento da forza específica dorsal e tricepital fóra da auga (+18%).'
+  },
+  {
+    id: 'sports_psychologist',
+    name: 'Psicólogo Deportivo & Coaching Mental',
+    subtitle: 'Xestión do estrés precompetitivo e foco nas grandes finais',
+    category: 'Persoal',
+    cost: 4600,
+    trainingBonus: 0.12,
+    fatigueRecoveryBonus: 0.20,
+    icon: '🧠',
+    description: 'Aumenta a moral (+8 puntos) e reduce a perda de rendemento por presión ambiental.'
+  },
+  {
+    id: 'pressotherapy',
+    name: 'Botas de Presoterapia Pneumática (Normatec)',
+    subtitle: 'Drenaxe linfático acelerado post-sesión de intensidade',
+    category: 'Instalacións',
+    cost: 4900,
+    fatigueRecoveryBonus: 0.35,
+    icon: '🦿',
+    description: 'Drenaxe de lactato nas pernas tras series duras (+35% de velocidade de recuperación).'
+  },
+  {
     id: 'gym_conditioning',
-    name: 'Ximnasio de Forza & Halterofilia',
+    name: 'Ximnasio de Forza & Halterofilia do Club',
     subtitle: 'Banco de calistenia, racks de sentadillas e discos olímpicos',
     category: 'Instalacións',
-    cost: 5000,
+    cost: 5400,
     trainingBonus: 0.20,
     icon: '🏋️',
-    description: 'Incrementa un 20% a ganancia de forza explosiva para saídas e viraxes.'
+    description: 'Incrementa un 20% a ganancia de forza explosiva para saídas e viraxes potentes.'
+  },
+  {
+    id: 'high_tech_suits',
+    name: 'Lote de Bañadores de Competición Fastskin Carbon',
+    subtitle: 'Traxes homologados World Aquatics con compresión muscular',
+    category: 'Material',
+    cost: 5800,
+    raceStartBonus: 0.10,
+    icon: '🩱',
+    description: 'Redución do rozamento hidrodinámico en competición (-0.10s de bonificación en marcas).'
+  },
+  {
+    id: 'lactate_analyzer',
+    name: 'Analizadores de Lactato Portátiles (Lactate Scout)',
+    subtitle: 'Control bioquímico de adestramento en limiares aeróbico e anaeróbico',
+    category: 'Tecnoloxía',
+    cost: 6500,
+    trainingBonus: 0.21,
+    icon: '🩸',
+    description: 'Optimiza as zonas de intensidade de cada nadador (+21% de aproveitamento fisiolóxico).'
+  },
+  {
+    id: 'physio_clinic',
+    name: 'Fisioterapeuta e Masaxista Exclusivo do Club',
+    subtitle: 'Descarga miofascial, prevención de escápula e ombreiro de nadador',
+    category: 'Persoal',
+    cost: 6900,
+    fatigueRecoveryBonus: 0.40,
+    icon: '💆',
+    description: 'Reduce o risco de lesións e diminúe a fatiga crónica nun 40% adicional.'
   },
   {
     id: 'video_analysis',
-    name: 'Sistema Subacuático de Análise Biomecánica',
-    subtitle: 'Cámaras 4K subacuáticas e software de ángulo de brazada',
+    name: 'Sistema Subacuático de Análise Biomecánica 4K',
+    subtitle: 'Cámaras subacuáticas e software de ángulo de brazada e arrastre',
     category: 'Tecnoloxía',
-    cost: 7500,
-    trainingBonus: 0.22,
+    cost: 7800,
+    trainingBonus: 0.23,
     icon: '📹',
-    description: 'Mellora acelerada en técnica de estilos e eficiencia hidrodinámica.'
+    description: 'Mellora acelerada na técnica dos catro estilos e eficiencia de deslizamento (+23%).'
+  },
+  {
+    id: 'anti_wave_lanes',
+    name: 'Carrileiras Anti-ondas Competitivas FINA',
+    subtitle: 'Turbinas de disipación de turbulencia para piscina do club',
+    category: 'Instalacións',
+    cost: 8900,
+    trainingBonus: 0.18,
+    raceStartBonus: 0.08,
+    icon: '🌊',
+    description: 'Auga completamente plana no adestramento; mellora o deslizamento de todo o cadro.'
   },
   {
     id: 'cryo_recovery',
-    name: 'Centro de Crioterapia & Fisioterapia',
-    subtitle: 'Baños de xeo, presoterapia e sala de masaxe de descarga',
+    name: 'Centro de Crioterapia & Baños de Xeo',
+    subtitle: 'Sala de hidroterapia con contraste térmico e baños fríos a 8ºC',
     category: 'Instalacións',
-    cost: 10000,
+    cost: 10500,
     fatigueRecoveryBonus: 0.50,
     icon: '🧊',
-    description: 'Reduce a fatiga acumulada un 50% máis rápido entre xornadas e sesións.'
+    description: 'Reduce a fatiga acumulada un 50% máis rápido entre xornadas e semanas de carga.'
+  },
+  {
+    id: 'altitude_camp',
+    name: 'Stage de Concentración en Altitude (Sierra Nevada)',
+    subtitle: 'Estadía de 2 semanas a 2.320 metros para aumento de EPO e glóbulos vermellos',
+    category: 'Instalacións',
+    cost: 12800,
+    trainingBonus: 0.25,
+    fatigueRecoveryBonus: 0.30,
+    icon: '🏔️',
+    description: 'Salto cualitativo na capacidade aeróbica e resistencia cardiovascular (+25% fondo).'
   },
   {
     id: 'touchpad_blocks',
     name: 'Plataformas Omega con Cunha & Placas de Crono',
     subtitle: 'Bloques de saída homologados con cuña axustable e placas electrónicas',
     category: 'Tecnoloxía',
-    cost: 14000,
-    raceStartBonus: 0.15, // Faster reaction times & relay takeoffs
+    cost: 14500,
+    raceStartBonus: 0.18,
     icon: '⏱️',
-    description: 'Reduce tempos de reacción nas saídas e cambios de remudas en 0.15 segundos.'
+    description: 'Reduce tempos de reacción nas saídas e relevos en 0.18 segundos oficiais.'
+  },
+  {
+    id: 'hyperbaric_chamber',
+    name: 'Cámara Hiperbárica de Oíxeno Puro',
+    subtitle: 'Osixenación celular hiperbárica a 2.0 ATA de presión',
+    category: 'Tecnoloxía',
+    cost: 18500,
+    fatigueRecoveryBonus: 0.65,
+    trainingBonus: 0.15,
+    icon: '🛸',
+    description: 'O cumio da tecnoloxía de recuperación: elimina a fatiga case ao instante (+65% recuperación).'
   }
 ];
 
@@ -485,13 +639,13 @@ export const DIFFICULTY_PRESETS = {
     id: 'NORMAL',
     name: 'Federado (Normal)',
     tag: 'Normal',
-    description: 'Experiencia equilibrada e realista coa economía e esixencia da Liga Galega de Clubs.',
+    description: 'Experiencia equilibrada e esixente coa economía e rivalidade da Liga Galega de Clubs.',
     startingFunds: 12000,
     statGrowthMultiplier: 1.0,
     statDecayMultiplier: 1.0,
     fatigueAccumulationMultiplier: 1.0,
     fatigueRecoveryMultiplier: 1.0,
-    aiOptimizationLevel: 0.88,
+    aiOptimizationLevel: 0.93,
     prizeMoneyMultiplier: 1.0,
     marketCostMultiplier: 1.0
   },

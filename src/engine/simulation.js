@@ -228,18 +228,72 @@ export class RaceSimulation {
 
   /**
    * Compute positions at time elapsed t for 2D animated pool graphics
+   * Implements realistic swimming split pacing & lead changes during the race
    * Pool length is 25 meters.
-   * Total length = event.distance (e.g. 50m = 2 lengths, 100m = 4 lengths, etc.)
    */
   static getLiveStateAtTime(results, event, elapsedSeconds) {
     const totalDist = event.distance;
     const poolLength = 25; // standard short course pool
     const numLaps = totalDist / poolLength;
 
-    return results.map(res => {
+    const rawStates = results.map((res, resIdx) => {
       const finalTime = res.finalTime;
-      const progressFraction = Math.min(1.0, elapsedSeconds / finalTime);
-      const currentDistance = progressFraction * totalDist;
+      let currentDistance = 0;
+      let isFinished = false;
+      let currentStroke = event.stroke;
+      let activeSwimmerName = res.swimmerName;
+
+      if (elapsedSeconds >= finalTime) {
+        currentDistance = totalDist;
+        isFinished = true;
+      } else if (res.isRelay && res.legSplits && res.legSplits.length === 4) {
+        // Realistic Relay Pacing: each of the 4 legs follows its specific swimmer's speed
+        const legDist = totalDist / 4;
+        let cumulativeTime = 0;
+        let legStartDist = 0;
+
+        for (let legIdx = 0; legIdx < 4; legIdx++) {
+          const leg = res.legSplits[legIdx];
+          const legT = leg.time;
+          const legEndTime = cumulativeTime + legT;
+
+          if (elapsedSeconds < legEndTime || legIdx === 3) {
+            currentStroke = leg.stroke || event.stroke;
+            activeSwimmerName = leg.swimmerName;
+            const timeInLeg = Math.max(0, elapsedSeconds - cumulativeTime);
+            const legTau = Math.min(1.0, timeInLeg / legT);
+            // Intra-leg acceleration/pacing
+            const legWave = Math.sin(Math.PI * legTau) * 0.02 * Math.sin(2 * Math.PI * legTau);
+            const legProgress = Math.max(0, Math.min(1.0, legTau + legWave));
+            currentDistance = legStartDist + legProgress * legDist;
+            break;
+          }
+
+          cumulativeTime += legT;
+          legStartDist += legDist;
+        }
+      } else {
+        // Realistic Individual Pacing: split curves, turn bonuses, and surge phases
+        const tau = Math.min(1.0, elapsedSeconds / finalTime);
+        const swimmer = res.swimmer;
+        const specialty = swimmer ? swimmer.specialty : (resIdx % 2 === 0 ? 'sprint' : 'distance');
+        const seed = (res.lane || (resIdx + 1)) * 1.618;
+
+        // Front-half bias (sprinters go out faster, distance swimmers surge in 2nd half)
+        const paceBias = specialty === 'sprint'
+          ? Math.sin(Math.PI * tau) * 0.022
+          : -Math.sin(Math.PI * tau) * 0.018;
+
+        // Micro-surge wave: creates realistic lead changes throughout the race
+        const waveCycles = Math.max(2, Math.round(numLaps));
+        const surgeWave = Math.sin(2 * Math.PI * waveCycles * tau + seed) * 0.014 * Math.sin(Math.PI * tau);
+        
+        const progressFraction = Math.max(0, Math.min(1.0, tau + paceBias + surgeWave));
+        currentDistance = progressFraction * totalDist;
+      }
+
+      currentDistance = Math.min(totalDist, Math.max(0, currentDistance));
+      const progressFraction = currentDistance / totalDist;
 
       // Current lap index: 0, 1, 2...
       const currentLap = Math.min(numLaps - 1, Math.floor(currentDistance / poolLength));
@@ -247,22 +301,22 @@ export class RaceSimulation {
 
       // Is swimming left-to-right (even lap) or right-to-left (odd lap)
       const isGoingRight = (currentLap % 2 === 0);
-      const lapFraction = distInCurrentLap / poolLength;
+      const lapFraction = Math.min(1.0, Math.max(0, distInCurrentLap / poolLength));
 
       // Normalised X coordinate in pool: 0.0 (left wall) to 1.0 (right wall)
       const poolX = isGoingRight ? lapFraction : (1.0 - lapFraction);
 
-      const isFinished = progressFraction >= 1.0;
-
-      // Stroke phase cycle (arms & kicks) based on stroke tempo (~0.9s per stroke cycle)
-      const strokeCycleTime = event.stroke === STROKES.FLY ? 0.95 : event.stroke === STROKES.BREAST ? 1.1 : 0.82;
-      const strokePhase = (elapsedSeconds % strokeCycleTime) / strokeCycleTime; // 0 to 1
+      // Stroke phase cycle
+      const strokeCycleTime = currentStroke === STROKES.FLY ? 0.95 : currentStroke === STROKES.BREAST ? 1.1 : 0.82;
+      const strokePhase = (elapsedSeconds % strokeCycleTime) / strokeCycleTime;
 
       // Turn animation: within 1 meter of turn
       const nearTurn = !isFinished && (distInCurrentLap > 24.2 || distInCurrentLap < 0.8);
 
       return {
         ...res,
+        currentStroke,
+        activeSwimmerName,
         progressFraction,
         currentDistance,
         currentLap,
@@ -273,5 +327,24 @@ export class RaceSimulation {
         nearTurn
       };
     });
+
+    // Compute live positions/ranks in the water
+    const sortedByDistance = [...rawStates].sort((a, b) => {
+      if (a.isFinished && b.isFinished) return a.finalTime - b.finalTime;
+      if (a.isFinished) return -1;
+      if (b.isFinished) return 1;
+      return b.currentDistance - a.currentDistance;
+    });
+
+    const rankMap = new Map();
+    sortedByDistance.forEach((item, idx) => {
+      rankMap.set(item.id, idx + 1);
+    });
+
+    return rawStates.map(state => ({
+      ...state,
+      liveRank: rankMap.get(state.id) || state.rank,
+      isLeading: (rankMap.get(state.id) === 1)
+    }));
   }
 }

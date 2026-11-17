@@ -301,16 +301,21 @@ export class PoolRenderer {
     // Swimmer / Relay Name
     ctx.fillStyle = '#f8fafc';
     ctx.font = 'bold 11px system-ui, sans-serif';
-    const nameStr = state.isRelay ? state.relayName : state.swimmerName;
+    const nameStr = state.isRelay ? (state.activeSwimmerName || state.relayName) : state.swimmerName;
     const truncatedName = nameStr.length > 13 ? nameStr.substring(0, 12) + '…' : nameStr;
     ctx.fillText(truncatedName, boxX + 32, centerY - 5);
 
-    // Club name & Time/Split
-    ctx.fillStyle = '#94a3b8';
+    // Club name & Time/Live position
+    let subStr = '';
+    if (state.isFinished) {
+      subStr = `${RaceSimulation.formatTime(state.finalTime)} (#${state.rank})`;
+      ctx.fillStyle = state.rank === 1 ? '#f59e0b' : '#38bdf8';
+    } else {
+      const leaderTag = state.liveRank === 1 ? '👑 #1' : `#${state.liveRank || state.rank}`;
+      subStr = `${state.clubName.substring(0, 9)} · ${leaderTag}`;
+      ctx.fillStyle = state.liveRank === 1 ? '#fbbf24' : '#94a3b8';
+    }
     ctx.font = '10px system-ui, sans-serif';
-    const subStr = state.isFinished
-      ? `${RaceSimulation.formatTime(state.finalTime)} (#${state.rank})`
-      : `${state.clubName.substring(0, 11)}`;
     ctx.fillText(subStr, boxX + 10, centerY + 10);
   }
 
@@ -433,11 +438,19 @@ export class PoolRenderer {
     ctx.fillText(`${event.name}`, 14, 28);
 
     // Current distance / lap info
-    const leadSwimmer = liveResults[0];
+    const leadSwimmer = liveResults.find(r => r.isLeading) || liveResults[0];
     const currentDist = leadSwimmer ? Math.min(event.distance, Math.round(leadSwimmer.currentDistance)) : 0;
     ctx.fillStyle = '#38bdf8';
     ctx.font = 'bold 12px monospace';
-    ctx.fillText(`${currentDist} m / ${event.distance} m`, 300, 28);
+    ctx.fillText(`${currentDist} m / ${event.distance} m`, 260, 28);
+
+    // Current leader badge
+    if (leadSwimmer && !allFinished) {
+      const leaderName = leadSwimmer.isRelay ? (leadSwimmer.activeSwimmerName || leadSwimmer.relayName) : leadSwimmer.swimmerName;
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = 'bold 11px system-ui, sans-serif';
+      ctx.fillText(`👑 Líder: ${leaderName.substring(0, 16)} (${leadSwimmer.clubName})`, 410, 28);
+    }
 
     // Large Digital Race Clock
     const formattedClock = RaceSimulation.formatTime(elapsedSeconds);

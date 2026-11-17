@@ -117,9 +117,9 @@ export class LeagueEngine {
     else if (isDiv1) { baseMin = 65; baseMax = 82; }
     else if (isDiv2) { baseMin = 54; baseMax = 70; }
     else {
-      // Div 3: Balanced baseline across all clubs in 3ª División (~56 average rating)
-      baseMin = 46;
-      baseMax = 66;
+      // Div 3: AI clubs start with established baseline (~57 rating), player starts as a humble aspiring squad (~54 rating)
+      baseMin = club.isPlayer ? 45 : 48;
+      baseMax = club.isPlayer ? 64 : 68;
     }
 
     const firstNamesM = ['Brais', 'Antón', 'Roi', 'Iago', 'Mateo', 'Lucas', 'Martín', 'Alex', 'Adrián', 'Pablo', 'Diego', 'Hugo', 'David', 'Manuel', 'Álvaro'];
